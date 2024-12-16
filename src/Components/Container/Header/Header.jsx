@@ -15,8 +15,12 @@ import Settings from "@mui/icons-material/Settings";
 import Logout from "@mui/icons-material/Logout";
 import logo from "../../../assets/logo.png";
 import { styled } from "@mui/material/styles";
-import { Link, useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import { Link } from "react-router-dom";
+import AssessmentIcon from "@mui/icons-material/Assessment";
+import ExitToAppIcon from "@mui/icons-material/ExitToApp";
+import AppRegistrationIcon from "@mui/icons-material/AppRegistration";
+import ContactPhoneIcon from "@mui/icons-material/ContactPhone";
+import { useAuth } from "../../AuthContext.jsx";
 
 // Styled components for better customization
 const Logo = styled("img")({
@@ -47,21 +51,9 @@ const AvatarIcon = styled(Avatar)({
 });
 
 const Header = () => {
-  const [account, setAccount] = useState({
-    id: 0,
-    tentaiKhoan: "",
-    matkhau: "",
-    tennguoidung: "",
-    sodienthoai: "",
-    vaitro: "",
-  });
+  const { auth, logout } = useAuth();
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
-  const navigate = useNavigate();
-  useEffect(() => {
-    localStorage.getItem("userId", account.id);
-    setAccount();
-  }, []);
 
   const handleClick = (event) => {
     setAnchorEl(event.currentTarget);
@@ -71,17 +63,7 @@ const Header = () => {
     setAnchorEl(null);
   };
   const handleLogout = () => {
-    // Xóa thông tin người dùng khỏi localStorage
-    localStorage.removeItem("UserId", account.id);
-
-    // Hiển thị thông báo đăng xuất
-    toast.success("Đăng xuất thành công!", {
-      position: "top-right",
-      autoClose: 3000,
-    });
-
-    // Điều hướng về trang đăng nhập
-    navigate("/Login");
+    logout();
   };
   return (
     <Box
@@ -135,18 +117,22 @@ const Header = () => {
             </Box>
           </Typography>
           <Box
-            sx={{ display: "flex", alignItems: "center", marginRight: "150px" }}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              marginRight: "150px",
+              gap: 1,
+            }}
           >
             <MenuButton component={Link} to="/AppointmentBooking">
-              Đăng ký lịch khám
+              <AppRegistrationIcon sx={{ marginRight: "5px" }} /> Đăng ký lịch
+              khám
             </MenuButton>
             <MenuButton component={Link} to="/Exportexcel">
-              Xuất file excel
-            </MenuButton>
-            <MenuButton component={Link} to="">
-              Bác sĩ
+              <ExitToAppIcon sx={{ marginRight: "5px" }} /> Xuất file excel
             </MenuButton>
             <MenuButton component={Link} to="/Statistics">
+              <AssessmentIcon sx={{ marginRight: "5px" }} />
               Thống kê
             </MenuButton>
           </Box>
@@ -165,6 +151,9 @@ const Header = () => {
                   fontWeight: "bold",
                   fontFamily: "'Roboto', sans-serif",
                   p: "6px 8px",
+                  justifyContent: "center",
+                  display: "flex",
+                  gap: 1,
                   borderRadius: "20px",
                   "&:hover": {
                     backgroundImage:
@@ -172,7 +161,7 @@ const Header = () => {
                   },
                 }}
               >
-                Liên hệ
+                <ContactPhoneIcon /> Liên hệ
               </Typography>
               <Tooltip title="Account settings">
                 <IconButton
@@ -183,7 +172,11 @@ const Header = () => {
                   aria-haspopup="true"
                   aria-expanded={open ? "true" : undefined}
                 >
-                  <AvatarIcon>M</AvatarIcon>
+                  <AvatarIcon>
+                    {auth?.user?.name
+                      ? auth.user.name.charAt(0).toUpperCase()
+                      : "?"}
+                  </AvatarIcon>
                 </IconButton>
               </Tooltip>
             </Box>
@@ -223,12 +216,8 @@ const Header = () => {
               transformOrigin={{ horizontal: "right", vertical: "top" }}
               anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
             >
-              {account.vaitro === "Admin" && (
-                <MenuItem
-                  onClick={handleClose}
-                  component={Link}
-                  to="/AccountManagement"
-                >
+              {auth?.user?.role === "Admin" && (
+                <MenuItem component={Link} to="/AccountManagement">
                   <ListItemIcon>
                     <PersonAdd fontSize="small" />
                   </ListItemIcon>

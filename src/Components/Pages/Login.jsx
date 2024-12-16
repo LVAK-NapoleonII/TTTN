@@ -9,7 +9,7 @@ import {
 } from "@mui/material";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-
+import { useAuth } from "../AuthContext";
 const LoginForm = () => {
   const [account, setAccount] = useState({
     id: 0,
@@ -23,13 +23,17 @@ const LoginForm = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleLogin = async () => {
+    if (!account.tentaiKhoan || !account.matkhau) {
+      setError("Vui lòng nhập đầy đủ tên tài khoản và mật khẩu.");
+      return;
+    }
     if (account.matkhau.length < 6) {
       setError("Mật khẩu phải có ít nhất 6 ký tự.");
       return;
     }
-
     setError("");
     setSuccess("");
     setLoading(true);
@@ -39,15 +43,14 @@ const LoginForm = () => {
         { ...account }
       );
 
-      const { userId, Message, tenNguoiDung } = response.data;
+      const { token, Message, userName } = response.data;
       console.log("response", response.data);
-
-      // Lưu thông tin vào localStorage
-      localStorage.setItem("userId", userId); // Lưu id vào localStorage
-      localStorage.setItem("userName", tenNguoiDung);
-
+      login(token);
+      // Lưu token vào localStorage
+      localStorage.setItem("token", token);
+      localStorage.setItem("userName", userName);
       // Hiển thị thông báo thành công
-      setSuccess(Message);
+      setSuccess(Message || "Đăng nhập thành công.");
       setTimeout(() => {
         setLoading(false);
         navigate("/"); // Điều hướng đến trang chính
@@ -114,7 +117,7 @@ const LoginForm = () => {
         <Typography
           variant="h5"
           align="center"
-          sx={{ mb: 2, fontWeight: "bold", color: "#2196f3" }}
+          sx={{ mb: 2, fontWeight: "bold", color: "#14af55" }}
         >
           Đăng nhập
         </Typography>
@@ -155,13 +158,14 @@ const LoginForm = () => {
           sx={{ mb: 2 }}
         />
         <Button
-          variant="contained"
+          variant="outlined"
           fullWidth
           onClick={handleLogin}
           disabled={loading}
           sx={{
+            color: "white",
             backgroundColor: "#2196f3",
-            ":hover": { backgroundColor: "#1976d2" },
+            ":hover": { backgroundColor: "white", color: "#1976d2" },
           }}
         >
           Đăng nhập

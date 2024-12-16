@@ -38,10 +38,14 @@ const AccountManagement = () => {
 
   const fetchAccounts = async () => {
     try {
+      const token = localStorage.getItem("token");
       const response = await axios.get(
-        "http://localhost:5038/api/Taikhoan/getAll"
+        "http://localhost:5038/api/Taikhoan/getAll",
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
       );
-      setAccountList(response.data);
+      setAccountList(response.data.data);
     } catch (error) {
       showSnackbar("Lỗi khi tải danh sách tài khoản.", error);
     }
@@ -65,55 +69,65 @@ const AccountManagement = () => {
   };
 
   const handleRegister = async () => {
+    // Kiểm tra các điều kiện bắt buộc
     if (!account.tennguoidung) {
       showSnackbar("Vui lòng nhập tên người dùng.", "error");
       return;
     }
 
-    if (!account.sodienthoai) {
-      showSnackbar("Vui lòng nhập số điện thoại.", "error");
-      return;
-    }
+    const token = localStorage.getItem("token");
 
-    if (!account.tentaiKhoan) {
-      showSnackbar("Vui lòng nhập tên tài khoản.", "error");
-      return;
-    }
-    if (!account.vaitro) {
-      showSnackbar("Vui lòng chọn vai trò.", "error");
-      return;
-    }
     try {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      };
+
       if (isEditing) {
-        // Nếu đang ở chế độ chỉnh sửa
+        // Chỉnh sửa tài khoản
         await axios.put(
           `http://localhost:5038/api/Taikhoan/Edit/${account.id}`,
-          {
-            ...account,
-          }
+          account,
+          config
         );
       } else {
-        // Nếu đang ở chế độ thêm mới
-        await axios.post("http://localhost:5038/api/Taikhoan/register", {
-          ...account,
-        });
+        // Đăng ký tài khoản mới
+        await axios.post(
+          "http://localhost:5038/api/Taikhoan/register",
+          account,
+          config
+        );
       }
 
       fetchAccounts(); // Làm mới danh sách tài khoản
       resetForm(); // Đặt lại form
       setIsEditing(false); // Thoát chế độ chỉnh sửa
+      showSnackbar(isEditing ? "Cập nhật thành công" : "Đăng ký thành công");
     } catch (error) {
-      console.error(error.response?.data || "Đã xảy ra lỗi.");
+      console.error("Lỗi đăng ký:", error.response?.data || error.message);
+      showSnackbar(
+        error.response?.data?.message || "Đã xảy ra lỗi khi đăng ký tài khoản",
+        "error"
+      );
     }
   };
-
   // Delete an account
   const handleDelete = async (id) => {
     try {
-      await axios.delete(`http://localhost:5038/api/Taikhoan/Delete/${id}`);
-      fetchAccounts(); // Refresh the account list
+      const token = localStorage.getItem("token");
+      await axios.delete(`http://localhost:5038/api/Taikhoan/Delete/${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      fetchAccounts(); // Làm mới danh sách tài khoản
     } catch (error) {
-      showSnackbar(error.response?.data || "Lỗi khi xóa tài khoản.", error);
+      showSnackbar(
+        error.response?.data?.message || "Lỗi khi xóa tài khoản",
+        "error"
+      );
     }
   };
   const handleEdit = (acc) => {
@@ -175,13 +189,12 @@ const AccountManagement = () => {
         {/* Form Nhập Liệu */}
         <Grid
           item
-          spacing={3}
-          xs={12}
-          sm={5}
+          xs={6}
+          sm={3}
           sx={{
             border: "2px solid #E9F7DD",
             padding: 1,
-            margin: "8px 32px 0 50px",
+            margin: 5,
             width: "max-width",
             borderRadius: "15px",
             boxShadow: 1,
@@ -194,7 +207,6 @@ const AccountManagement = () => {
               padding: 1,
               border: "1px solid #90caf9",
               borderRadius: "15px",
-              marginLeft: "8px",
               backgroundSize: "cover",
               bgcolor: "rgba(255, 255, 255)",
               boxShadow: "0 4px 12px rgba(0, 0, 0, 0.2)",
@@ -255,13 +267,16 @@ const AccountManagement = () => {
             </FormControl>
             <Box sx={{ textAlign: "center", marginTop: 2 }}>
               <Button
-                variant="contained"
+                variant="outlined"
+                color=""
                 sx={{
+                  borderWidth: "2px",
                   backgroundColor: "blue",
                   marginRight: 2,
                   color: "white",
                   "&:hover": {
-                    backgroundColor: "darkblue",
+                    backgroundColor: "white",
+                    color: "blue",
                   },
                 }}
                 onClick={handleRegister}
@@ -270,11 +285,15 @@ const AccountManagement = () => {
               </Button>
               <Button
                 variant="outlined"
+                color=""
                 sx={{
+                  transitionDuration: "100",
+                  borderWidth: "2px",
                   backgroundColor: "red",
                   color: "white",
                   "&:hover": {
-                    backgroundColor: "darkred",
+                    backgroundColor: "white",
+                    color: "red",
                   },
                 }}
                 onClick={resetForm}
@@ -288,20 +307,25 @@ const AccountManagement = () => {
         {/* Bảng Danh Sách Tài Khoản */}
         <Grid
           item
-          xs={12}
-          sm={6}
+          xs={6}
+          sm={7.5}
           sx={{
             border: "2px solid #E9F7DD",
-            borderRadius: 2,
+            borderRadius: "15px",
             padding: 2,
-            margin: 1,
+            margin: 5,
             width: "max-width",
             boxShadow: 1,
             backgroundColor: "rgba(255, 255, 255, 0.1)",
             backdropFilter: "blur(3px)",
+            height: "500px",
           }}
         >
-          <TableContainer component={Paper} sx={{ marginLeft: "8px" }}>
+          0{" "}
+          <TableContainer
+            component={Paper}
+            sx={{ height: "470px", overflowY: "auto" }}
+          >
             <Table>
               <TableHead sx={{ bgcolor: "#E9F7DD" }}>
                 <TableRow>
@@ -310,7 +334,7 @@ const AccountManagement = () => {
                   <TableCell>Tên tài khoản</TableCell>
                   {/* <TableCell>Mật khẩu</TableCell> */}
                   <TableCell>Vai trò</TableCell>
-                  <TableCell sx={{ marginRight: 2 }}>Hành động</TableCell>
+                  <TableCell>Hành động</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -323,26 +347,33 @@ const AccountManagement = () => {
                     <TableCell>{acc.vaitro}</TableCell>
                     <TableCell>
                       <Button
-                        variant="contained"
+                        variant="outlined"
+                        color=""
                         sx={{
+                          borderWidth: "2px",
                           backgroundColor: "blue",
+                          marginRight: 2,
                           color: "white",
                           "&:hover": {
-                            backgroundColor: "darkblue",
+                            backgroundColor: "white",
+                            color: "blue",
                           },
-                          marginRight: 1,
                         }}
                         onClick={() => handleEdit(acc)}
                       >
                         Sửa
                       </Button>
                       <Button
-                        variant="contained"
+                        variant="outlined"
+                        color=""
                         sx={{
+                          transitionDuration: "100",
+                          borderWidth: "2px",
                           backgroundColor: "red",
                           color: "white",
                           "&:hover": {
-                            backgroundColor: "darkred",
+                            backgroundColor: "white",
+                            color: "red",
                           },
                         }}
                         onClick={() => handleDelete(acc.id)}

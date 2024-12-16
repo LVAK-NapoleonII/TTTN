@@ -10,7 +10,10 @@ import {
   Paper,
   Grid,
   TextField,
+  Button,
+  Grid2,
 } from "@mui/material";
+import AssignmentReturnedIcon from "@mui/icons-material/AssignmentReturned";
 
 const PatientInfoForm = () => {
   return (
@@ -29,27 +32,40 @@ const PatientInfoForm = () => {
         backgroundImage: `url(src/assets/pexels-tomfisk-1770818.jpg)`,
       }}
     >
-      <Grid container>
-        <Grid xs={12} sx={{ marginLeft: "800px", bgcolor: "#fff" }}>
+      <Grid containe sx={{}}>
+        <Grid
+          xs={12}
+          sx={{ marginLeft: "800px", bgcolor: "#fff", borderRadius: "5px" }}
+        >
           <TextField fullWidth label="" type="Date" />
         </Grid>
       </Grid>
-      <Grid container spacing={2} sx={{ marginTop: 4 }}>
+      <Grid
+        container
+        spacing={2}
+        sx={{
+          marginTop: 4,
+          border: "2px solid #E9F7DD",
+          borderRadius: "15px",
+          padding: 2,
+          margin: 5,
+          width: "max-width",
+          boxShadow: 1,
+          backgroundColor: "rgba(255, 255, 255, 0.1)",
+          backdropFilter: "blur(3px)",
+          height: "500px",
+          overflowY: "auto",
+        }}
+      >
         <Grid item xs={12}>
           <TableContainer component={Paper}>
             <Table>
-              <TableHead sx={{ bgcolor: "#D8E8F9" }}>
+              <TableHead sx={{ bgcolor: "#E9F7DD" }}>
                 <TableRow>
                   <TableCell>STT</TableCell>
-                  <TableCell>Phòng</TableCell>
-                  <TableCell>Giờ khám</TableCell>
-                  <TableCell>Tên bệnh nhân</TableCell>
-                  <TableCell>Ngày sinh</TableCell>
-                  <TableCell>Số điện thoại</TableCell>
-                  <TableCell>Ngày khám</TableCell>
-                  <TableCell>Yêu cầu</TableCell>
-                  <TableCell>Người chỉnh sửa</TableCell>
-                  <TableCell>Ghi chú</TableCell>
+                  <TableCell>Dữ liệu ngày</TableCell>
+                  <TableCell>số lượng </TableCell>
+                  <TableCell>Xử lý</TableCell>
                   <TableCell>Xử lý</TableCell>
                 </TableRow>
               </TableHead>
@@ -60,13 +76,11 @@ const PatientInfoForm = () => {
                   <TableCell>Phòng 1</TableCell>
                   <TableCell>08:00</TableCell>
                   <TableCell>Nguyễn Văn A</TableCell>
-                  <TableCell>01/01/1990</TableCell>
-                  <TableCell>0123456789</TableCell>
-                  <TableCell>10/12/2024</TableCell>
-                  <TableCell>Khám tổng quát</TableCell>
-                  <TableCell>Bệnh nhân mới</TableCell>
-                  <TableCell>Admin</TableCell>
-                  <TableCell></TableCell>
+                  <TableCell>
+                    <Button>
+                      <AssignmentReturnedIcon sx={{ color: "black" }} />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               </TableBody>
             </Table>
