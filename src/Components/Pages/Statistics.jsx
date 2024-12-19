@@ -1,331 +1,201 @@
-import React, { useState, useEffect } from "react";
+import React, { useMemo } from "react";
 import {
-  Box,
-  TextField,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  RadioGroup,
-  FormControlLabel,
-  Radio,
-  Button,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
+  Card,
+  CardContent,
+  CardHeader,
   Typography,
-  Paper,
+  Box,
   Grid,
-  Autocomplete,
 } from "@mui/material";
-import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
-import { DateField } from "@mui/x-date-pickers/DateField";
-import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
-import enGB from "date-fns/locale/en-GB";
-import axios from "axios";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
-const AppointmentBooking = () => {
-  const [formData, setFormData] = useState({
-    tenbenhnhan: "",
-    ngaythangnamsinh: null,
-    sdtdangky: "",
-    ngaykhambenh: null,
-    giokhambenh: null,
-    loaiBenhNhan: "",
-    yeuCauDacBiet: "",
-    taiKhoan: {},
-    lichLamViecBacSi: {},
-  });
+const AppointmentStats = ({ appointments = [] }) => {
+  const dailyStats = useMemo(() => {
+    if (!appointments || appointments.length === 0) {
+      const currentDate = new Date();
+      const daysInMonth = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth() + 1,
+        0
+      ).getDate();
 
-  const [dateError, setDateError] = useState("");
-  const [dobError, setDobError] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [phoneError, setPhoneError] = useState("");
-  const [timeError, setTimeError] = useState("");
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [selectedTime, setSelectedTime] = useState(new Date());
-  const [shift, setShift] = useState("");
-  const [appointmentList, setAppointmentList] = useState([]);
+      return Array.from({ length: daysInMonth }, (_, index) => ({
+        date: index + 1,
+        appointments: 0,
+      }));
+    }
 
-  useEffect(() => {
-    fetchLoggedInAccount();
-    fetchDoctorSchedules();
-  }, []);
+    const countsByDate = appointments.reduce((acc, appointment) => {
+      const date = new Date(appointment.NgayKhamBenh).toLocaleDateString();
+      acc[date] = (acc[date] || 0) + 1;
+      return acc;
+    }, {});
 
-  const fetchAppointments = async () => {
-    try {
-      const response = await axios.get(
-        "http://localhost:5038/api/LichKhamBenh"
+    const currentDate = new Date();
+    const daysInMonth = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth() + 1,
+      0
+    ).getDate();
+
+    return Array.from({ length: daysInMonth }, (_, index) => {
+      const day = index + 1;
+      const date = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth(),
+        day
       );
-      setAppointmentList(response.data);
-    } catch (error) {
-      console.error("Error fetching appointments:", error);
-      showSnackbar("Không thể tải danh sách lịch khám", "error");
-    }
-  };
+      const dateStr = date.toLocaleDateString();
 
-  const fetchLoggedInAccount = async () => {
-    // Fetch logged-in user account information
-    try {
-      const response = await axios.get(
-        "http://localhost:5038/api/Account/LoggedIn"
-      );
-      setFormData({ ...formData, taiKhoan: response.data });
-    } catch (error) {
-      console.error("Error fetching logged-in account:", error);
-    }
-  };
-
-  const fetchDoctorSchedules = async () => {
-    // Fetch doctor schedules
-    try {
-      const response = await axios.get(
-        "http://localhost:5038/api/DoctorSchedules"
-      );
-      setFormData({ ...formData, lichLamViecBacSi: response.data });
-    } catch (error) {
-      console.error("Error fetching doctor schedules:", error);
-    }
-  };
-
-  const handleDateChange = (newValue) => {
-    const today = new Date();
-    const selectedDay = new Date(newValue).setHours(0, 0, 0, 0);
-    const todayMidnight = today.setHours(0, 0, 0, 0);
-    if (selectedDay < todayMidnight) {
-      setDateError("Ngày khám bệnh không được nhỏ hơn thời điểm hiện tại");
-    } else {
-      setDateError("");
-      setFormData({ ...formData, ngaykhambenh: newValue });
-      setTimeError("");
-    }
-  };
-
-  const handleTimeChange = (newValue) => {
-    const today = new Date();
-    const selectedDay = new Date(selectedDate);
-    selectedDay.setHours(newValue.getHours(), newValue.getMinutes(), 0, 0);
-    const currentTime = new Date();
-    currentTime.setSeconds(0, 0);
-    if (
-      selectedDate.toDateString() === today.toDateString() &&
-      selectedDay < currentTime
-    ) {
-      setTimeError("Giờ khám không được nhỏ hơn giờ hiện tại");
-    } else {
-      setTimeError("");
-      setSelectedTime(newValue);
-      const hours = newValue.getHours();
-      const minutes = newValue.getMinutes();
-      if ((hours === 5 && minutes >= 30) || (hours >= 6 && hours < 7)) {
-        setShift("Ca 0");
-      } else if (hours >= 7 && hours < 11) {
-        setShift("Ca 1");
-      } else if (hours >= 11 && hours < 13) {
-        setShift("Ca 2");
-      } else if (hours >= 13 && hours < 16) {
-        setShift("Ca 3");
-      } else if (
-        (hours >= 16 && hours < 19) ||
-        (hours === 19 && minutes <= 30)
-      ) {
-        setShift("Ca 4");
-      } else {
-        setShift("");
-      }
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!validateForm()) return;
-
-    try {
-      const response = await axios.post(
-        "http://localhost:5038/api/LichKhamBenh",
-        {
-          ...formData,
-          ngaythangnamsinh: formData.ngaythangnamsinh.toISOString(),
-          ngaykhambenh: formData.ngaykhambenh.toISOString(),
-          giokhambenh: formData.giokhambenh.toTimeString().split(" ")[0],
-        }
-      );
-
-      showSnackbar("Đặt lịch khám thành công", "success");
-      fetchAppointments(); // Refresh the list
-      resetForm();
-    } catch (error) {
-      console.error("Error creating appointment:", error);
-      showSnackbar("Đặt lịch khám thất bại", "error");
-    }
-  };
-
-  const showSnackbar = (message, severity) => {
-    setSnackbarMessage(message);
-    setSnackbarSeverity(severity);
-    setOpenSnackbar(true);
-  };
-
-  const resetForm = () => {
-    setFormData({
-      tenbenhnhan: "",
-      ngaythangnamsinh: new Date(),
-      sdtdangky: "",
-      yeuCauDacBiet: "",
-      ngaykhambenh: new Date(),
-      giokhambenh: new Date(),
-      loaiBenhNhan: "",
-      taiKhoan: {},
-      lichLamViecBacSi: {},
+      return {
+        date: day,
+        appointments: countsByDate[dateStr] || 0,
+      };
     });
+  }, [appointments]);
+
+  const totalAppointments = useMemo(() => {
+    return dailyStats.reduce((sum, day) => sum + day.appointments, 0);
+  }, [dailyStats]);
+
+  const peakDay = useMemo(() => {
+    return dailyStats.reduce(
+      (max, day) => (day.appointments > max.appointments ? day : max),
+      dailyStats[0]
+    );
+  }, [dailyStats]);
+
+  const averageAppointments = useMemo(() => {
+    return dailyStats.length > 0
+      ? (totalAppointments / dailyStats.length).toFixed(1)
+      : "0.0";
+  }, [totalAppointments, dailyStats]);
+
+  if (!appointments) {
+    return (
+      <Card>
+        <CardContent>
+          <Typography variant="body1" align="center" color="text.secondary">
+            Không có dữ liệu lịch khám
+          </Typography>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      return (
+        <Card sx={{ boxShadow: 2, p: 1 }}>
+          <Typography variant="subtitle2">Ngày {label}</Typography>
+          <Typography variant="body2" color="primary">
+            Số lịch khám: {payload[0].value}
+          </Typography>
+        </Card>
+      );
+    }
+    return null;
   };
 
   return (
-    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={enGB}>
-      <Box
-        sx={{
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          flexDirection: "column",
-          borderRadius: "15px",
-          backgroundImage: `url(src/assets/pexels-tomfisk-1770818.jpg)`,
-        }}
-      >
-        <Typography
-          variant="h4"
-          textAlign="center"
-          sx={{
-            fontFamily: "rotobo",
-            fontWeight: "bold",
-            color: "#14AF55",
-            bgcolor: "#ffffff",
-            border: "1px solid #E9F7DD",
-            borderRadius: "15px",
-            marginBottom: 4,
-            width: "100%",
-          }}
-        >
-          Đặt lịch khám sức khỏe
-        </Typography>
-        <Grid container>
-          {/* Thông tin cơ bản */}
-          <Grid
-            item
-            xs={12}
-            md={6}
-            sx={{
-              border: "2px solid #E9F7DD",
-              borderRadius: 2,
-              padding: 2,
-              marginTop: 1,
-              width: "max-width",
-              boxShadow: 1,
-              backgroundColor: "rgba(255, 255, 255, 0.1)",
-              backdropFilter: "blur(3px)",
-            }}
-          >
-            <Grid
-              container
-              spacing={1}
-              sx={{
-                border: "2px solid #E9F7DD",
-                borderRadius: 2,
-                color: "#14AF55",
-                bgcolor: "#ffffff",
-                width: "max-width",
-                boxShadow: 1,
-              }}
-            >
-              <Grid item xs={12}>
-                <Typography
-                  variant="h6"
-                  sx={{
-                    marginLeft: "250px",
-                    color: "#14AF55",
-                    fontWeight: "bold",
-                    fontSize: "25px",
-                  }}
-                >
-                  Thông tin cơ bản
-                </Typography>
-              </Grid>
-              <Grid item xs={4}>
-                <FormControl fullWidth>
-                  <Autocomplete
-                    freeSolo
-                    options={["Phòng 1", "Phòng 2"]}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        label="Chọn phòng"
-                        variant="outlined"
-                      />
-                    )}
-                  />
-                </FormControl>
-              </Grid>
-              <Grid item xs={4}>
-                <FormControl fullWidth>
-                  <Autocomplete
-                    freeSolo
-                    options={["Ca 0", "Ca 1", "Ca 2", "Ca 3", "Ca 4"]}
-                    value={shift}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        label="Chọn ca làm"
-                        variant="outlined"
-                      />
-                    )}
-                  />
-                </FormControl>
-              </Grid>
-              <Grid item xs={4}>
-                <DateField
-                  fullWidth
-                  label="Ngày khám bệnh"
-                  InputLabelProps={{ shrink: true }}
-                  defaultValue={new Date()}
-                  onChange={(newValue) => handleDateChange(newValue)}
-                  helperText={dateError}
-                  error={!!dateError}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <FormControl fullWidth>
-                  <TextField
-                    label="Yêu cầu đặc biệt"
-                    value={formData.yeuCauDacBiet}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        yeuCauDacBiet: e.target.value,
-                      })
-                    }
-                  />
-                </FormControl>
-              </Grid>
-              <Grid item xs={12}>
-                <Button
-                  fullWidth
-                  variant="contained"
-                  color="primary"
-                  onClick={handleSubmit}
-                >
-                  Đặt lịch khám
-                </Button>
-              </Grid>
-            </Grid>
-          </Grid>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+      <Grid container spacing={2}>
+        <Grid item xs={12} md={4}>
+          <Card sx={{ height: "100%" }}>
+            <CardHeader
+              title={<Typography variant="h6">Tổng số lịch khám</Typography>}
+            />
+            <CardContent>
+              <Typography variant="h4">{totalAppointments}</Typography>
+            </CardContent>
+          </Card>
         </Grid>
-      </Box>
-    </LocalizationProvider>
+
+        <Grid item xs={12} md={4}>
+          <Card sx={{ height: "100%" }}>
+            <CardHeader
+              title={
+                <Typography variant="h6">Ngày có nhiều lịch nhất</Typography>
+              }
+            />
+            <CardContent>
+              <Typography variant="h4">Ngày {peakDay.date}</Typography>
+              <Typography variant="body2" color="text.secondary">
+                {peakDay.appointments} lịch khám
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} md={4}>
+          <Card sx={{ height: "100%" }}>
+            <CardHeader
+              title={<Typography variant="h6">Trung bình mỗi ngày</Typography>}
+            />
+            <CardContent>
+              <Typography variant="h4">{averageAppointments}</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      <Card>
+        <CardHeader
+          title={
+            <Typography variant="h6">Biểu đồ lịch khám theo ngày</Typography>
+          }
+        />
+        <CardContent>
+          <Box sx={{ height: 400, width: "100%" }}>
+            <ResponsiveContainer>
+              <BarChart
+                data={dailyStats}
+                margin={{
+                  top: 5,
+                  right: 30,
+                  left: 20,
+                  bottom: 60,
+                }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="date"
+                  label={{
+                    value: "Ngày trong tháng",
+                    position: "bottom",
+                  }}
+                />
+                <YAxis
+                  label={{
+                    value: "Số lượng lịch khám",
+                    angle: -90,
+                    position: "insideLeft",
+                  }}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend />
+                <Bar
+                  dataKey="appointments"
+                  name="Số lượng lịch khám"
+                  fill="#1976d2"
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </Box>
+        </CardContent>
+      </Card>
+    </Box>
   );
 };
 
-export default AppointmentBooking;
+export default AppointmentStats;

@@ -6,9 +6,6 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  RadioGroup,
-  FormControlLabel,
-  Radio,
   Button,
   Table,
   TableBody,
@@ -20,7 +17,9 @@ import {
   Paper,
   Grid,
   Autocomplete,
+  InputAdornment,
 } from "@mui/material";
+import SearchIcon from "@mui/icons-material/Search";
 import Checkbox from "@mui/material/Checkbox";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { DateField } from "@mui/x-date-pickers/DateField";
@@ -40,7 +39,7 @@ const AppointmentBooking = () => {
     ngayKhamBenh: new Date(),
     gioKhamBenh: new Date(),
     loaiBenhNhan: "",
-    trangThai: "",
+    trangThai: "Chưa xác nhận",
     ngayTaoLich: "",
     lichLamViecBacSi: {
       id: 0,
@@ -50,7 +49,7 @@ const AppointmentBooking = () => {
       ngayLam: new Date(),
     },
   });
-
+  const [isEditing, setIsEditing] = useState(false);
   const [dateError, setDateError] = useState("");
   const [dobError, setDobError] = useState("");
   const [timeError, setTimeError] = useState("");
@@ -64,9 +63,6 @@ const AppointmentBooking = () => {
   const [selectedRoom, setSelectedRoom] = useState("");
   const [selectedDoctor, setSelectedDoctor] = useState("");
   const [errors, setErrors] = useState("");
-  const [snackbarMessage, setSnackbarMessage] = useState("");
-  const [snackbarSeverity, setSnackbarSeverity] = useState("success");
-  const [openSnackbar, setOpenSnackbar] = useState(false);
   const [patientType, setPatientType] = useState("");
 
   useEffect(() => {
@@ -95,7 +91,6 @@ const AppointmentBooking = () => {
         const rooms = [...new Set(data.map((item) => item.tenphong))];
         const shifts = [...new Set(data.map((item) => item.calam))];
         const doctors = [...new Set(data.map((item) => item.tenBacsi))];
-        console.log("Processed Data:", { rooms, shifts, doctors });
         setRooms(rooms);
         setShifts(shifts);
         setDoctors(doctors);
@@ -147,6 +142,26 @@ const AppointmentBooking = () => {
       }));
     }
   };
+  const handleSelectAppointmentForEdit = (appointment) => {
+    setIsEditing(true);
+    setFormData({
+      id: appointment.id,
+      tenbenhnhan: appointment.tenbenhnhan,
+      ngaythangnamsinh: new Date(appointment.ngaythangnamsinh),
+      sdtdangky: appointment.sdtdangky,
+      sdtgoiden: appointment.sdtgoiden || "",
+      yeuCauDacBiet: appointment.yeuCauDacBiet || "",
+      ngayKhamBenh: new Date(appointment.ngayKhamBenh),
+      gioKhamBenh: new Date(`2024-01-01T${appointment.gioKhamBenh}`),
+      loaiBenhNhan: appointment.loaiBenhNhan || "",
+      trangThai: appointment.trangThai,
+      lichLamViecBacSi: {
+        tenphong: appointment.lichLamViecBacSi?.tenphong || "",
+        tenBacsi: appointment.lichLamViecBacSi?.tenBacsi || "",
+        calam: appointment.lichLamViecBacSi?.calam || "",
+      },
+    });
+  };
   const handlePhoneNumberChange = (e, fieldName) => {
     const value = e.target.value;
     const phoneRegex = /^[0-9]*$/; // Chỉ cho phép số
@@ -167,7 +182,7 @@ const AppointmentBooking = () => {
     // Cập nhật state cho errors
     setErrors((prev) => ({
       ...prev,
-      [`${fieldName}Error`]: phoneError,
+      [fieldName]: phoneError,
     }));
   };
 
@@ -231,20 +246,26 @@ const AppointmentBooking = () => {
 
   // Validate form before submission
   const validateForm = () => {
-    const newErrors = {};
-
-    if (!formData.tenbenhnhan)
-      newErrors.tenbenhnhan = "Tên bệnh nhân không được trống";
-
-    if (!formData.sdtdangky)
-      newErrors.sdtdangky = "Số điện thoại không được trống";
-
-    if (!selectedRoom) newErrors.room = "Vui lòng chọn phòng khám";
-
-    if (!selectedDoctor) newErrors.doctor = "Vui lòng chọn bác sĩ";
-
-    if (!shift) newErrors.shift = "Vui lòng chọn ca làm";
-
+    const newErrors = {
+      tenbenhnhan: !formData.tenbenhnhan
+        ? "Tên bệnh nhân không được trống"
+        : "",
+      sdtdangky: !formData.sdtdangky
+        ? "Số điện thoại không được trống"
+        : !/^[0-9]{10,11}$/.test(formData.sdtdangky)
+        ? "Số điện thoại không hợp lệ"
+        : "",
+      sdtgoiden:
+        formData.sdtgoiden && !/^[0-9]{10,11}$/.test(formData.sdtgoiden)
+          ? "Số điện thoại không hợp lệ"
+          : "",
+      room: !selectedRoom ? "Vui lòng chọn phòng khám" : "",
+      doctor: !selectedDoctor ? "Vui lòng chọn bác sĩ" : "",
+      shift: !shift ? "Vui lòng chọn ca làm" : "",
+      ngayKhamBenh: dateError || "",
+      gioKhamBenh: timeError || "",
+      ngaythangnamsinh: dobError || "",
+    };
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -270,7 +291,6 @@ const AppointmentBooking = () => {
         !matchingScheduleResponse.data.data ||
         matchingScheduleResponse.data.data.length === 0
       ) {
-        showSnackbar("Không tìm thấy lịch làm việc phù hợp", "error");
         return;
       }
 
@@ -299,7 +319,7 @@ const AppointmentBooking = () => {
                 hour12: false,
               })
             : formData.gioKhamBenh,
-        loaiBenhNhan: formData.loaiBenhNhan || "Loại 1",
+        loaiBenhNhan: formData.loaiBenhNhan || "",
         trangThai: "Chưa xác nhận",
         lichLamViecBacSi: {
           id: matchingSchedule.id,
@@ -323,14 +343,11 @@ const AppointmentBooking = () => {
 
       fetchAppointments();
       resetForm();
-      showSnackbar("Đặt lịch khám thành công", "success");
     } catch (error) {
       console.error("Full error details:", error.response?.data || error);
       const errorMessage = error.response?.data?.Errors
         ? error.response.data.Errors.map((e) => e.ErrorMessage).join(", ")
         : error.response?.data?.Message || "Có lỗi xảy ra khi tạo lịch khám";
-
-      showSnackbar(errorMessage, "error");
     }
   };
   // Delete appointment
@@ -342,21 +359,143 @@ const AppointmentBooking = () => {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-      showSnackbar("Xóa lịch khám thành công", "success");
       fetchAppointments();
     } catch (error) {
       console.error("Error deleting appointment:", error);
-      showSnackbar("Xóa lịch khám thất bại", "error");
     }
   };
+  const handleEdit = async (appointment) => {
+    try {
+      // Determine the new status
+      const newStatus =
+        appointment.trangThai === "Đã xác nhận"
+          ? "Chưa xác nhận"
+          : "Đã xác nhận";
+      const updatedAppointment = {
+        id: appointment.id,
+        tenbenhnhan: appointment.tenbenhnhan,
+        ngaythangnamsinh: appointment.ngaythangnamsinh,
+        sdtdangky: appointment.sdtdangky,
+        sdtgoiden: appointment.sdtgoiden || "",
+        yeuCauDacBiet: appointment.yeuCauDacBiet || "",
+        ngayKhamBenh: appointment.ngayKhamBenh,
+        gioKhamBenh: appointment.gioKhamBenh,
+        loaiBenhNhan: appointment.loaiBenhNhan || "",
+        trangThai: newStatus,
+        lichLamViecBacSi: {
+          id: appointment.lichLamViecBacSi?.id || 0,
+          tenphong: appointment.lichLamViecBacSi?.tenphong || "",
+          tenBacsi: appointment.lichLamViecBacSi?.tenBacsi || "",
+          calam: appointment.lichLamViecBacSi?.calam || "",
+          ngayLam: appointment.lichLamViecBacSi?.ngayLam || new Date(),
+        },
+      };
+      // Send the update request
+      const response = await axios.put(
+        `http://localhost:5038/api/LichKhamBenh/edit/${appointment.id}`,
+        updatedAppointment,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
-  // Helper function to show snackbar notifications
-  const showSnackbar = (message, severity) => {
-    setSnackbarMessage(message);
-    setSnackbarSeverity(severity);
-    setOpenSnackbar(true);
+      // Check for successful response
+      if (response.status === 200) {
+        // Refresh the appointment list
+        fetchAppointments();
+
+        // Optional: Show a success message
+        alert(`Cập nhật trạng thái thành công: ${newStatus}`);
+      }
+    } catch (error) {
+      // Handle any errors that occur during the update
+      console.error("Lỗi cập nhật trạng thái:", error);
+
+      // Provide more detailed error feedback
+      const errorMessage =
+        error.response?.data?.message ||
+        error.response?.data?.Errors?.map((e) => e.ErrorMessage).join(", ") ||
+        error.message ||
+        "Cập nhật trạng thái thất bại, vui lòng thử lại!";
+
+      alert(errorMessage);
+    }
   };
+  const handleUpdateAppointment = async () => {
+    try {
+      const token = localStorage.getItem("token");
 
+      // Prepare data for update
+      const updateData = {
+        ...formData,
+        ngaythangnamsinh:
+          formData.ngaythangnamsinh instanceof Date
+            ? formData.ngaythangnamsinh.toISOString().split("T")[0]
+            : formData.ngaythangnamsinh,
+        ngayKhamBenh:
+          formData.ngayKhamBenh instanceof Date
+            ? formData.ngayKhamBenh.toISOString().split("T")[0]
+            : formData.ngayKhamBenh,
+        gioKhamBenh:
+          formData.gioKhamBenh instanceof Date
+            ? formData.gioKhamBenh.toLocaleTimeString("en-GB", {
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+              })
+            : formData.gioKhamBenh,
+      };
+
+      // Send update request
+      const response = await axios.put(
+        `http://localhost:5038/api/LichKhamBenh/edit/${formData.id}`,
+        updateData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      // Reset form and fetch updated list
+      resetForm();
+      fetchAppointments();
+
+      // Show success message
+      alert("Cập nhật lịch khám thành công!");
+    } catch (error) {
+      console.error("Error updating appointment:", error);
+      alert("Có lỗi xảy ra khi cập nhật lịch khám");
+    }
+  };
+  const [searchKeyword, setSearchKeyword] = useState("");
+
+  const handleSearchChange = (e) => {
+    setSearchKeyword(e.target.value);
+  };
+  const filteredAppointments = appointmentList.filter((appointment) => {
+    // Kiểm tra loại bệnh nhân
+    const matchPatientType =
+      !patientType ||
+      (patientType === "confirmed" &&
+        appointment.trangThai === "Đã xác nhận") ||
+      (patientType === "unconfirmed" &&
+        appointment.trangThai === "Chưa xác nhận");
+
+    // Kiểm tra từ khóa tìm kiếm
+    const matchKeyword =
+      !searchKeyword ||
+      appointment.tenbenhnhan
+        .toLowerCase()
+        .includes(searchKeyword.toLowerCase()) ||
+      appointment.sdtdangky.includes(searchKeyword) ||
+      appointment.phong.toLowerCase().includes(searchKeyword.toLowerCase());
+    return matchPatientType && matchKeyword;
+  });
   // Reset form after submission
   const resetForm = () => {
     setFormData({
@@ -384,6 +523,7 @@ const AppointmentBooking = () => {
     setShift("");
     setSelectedRoom("");
     setSelectedDoctor("");
+    setIsEditing(false);
   };
 
   return (
@@ -466,7 +606,12 @@ const AppointmentBooking = () => {
                     value={selectedRoom}
                     onChange={(event, newValue) => handleRoomChange(newValue)}
                     renderInput={(params) => (
-                      <TextField {...params} label="Chọn phòng" />
+                      <TextField
+                        {...params}
+                        label="Chọn phòng"
+                        error={!!errors.room}
+                        helperText={errors.room}
+                      />
                     )}
                   />
                 </FormControl>
@@ -479,7 +624,12 @@ const AppointmentBooking = () => {
                     value={shift}
                     onChange={(event, newValue) => setShift(newValue)}
                     renderInput={(params) => (
-                      <TextField {...params} label="Chọn ca làm" />
+                      <TextField
+                        {...params}
+                        label="Chọn ca làm"
+                        error={!!errors.shift}
+                        helperText={errors.shift}
+                      />
                     )}
                   />
                 </FormControl>
@@ -503,7 +653,12 @@ const AppointmentBooking = () => {
                     value={selectedDoctor}
                     onChange={(event, newValue) => handleDoctorChange(newValue)}
                     renderInput={(params) => (
-                      <TextField {...params} label="Chọn bác sĩ" />
+                      <TextField
+                        {...params}
+                        label="Chọn bác sĩ"
+                        error={!!errors.doctor}
+                        helperText={errors.doctor}
+                      />
                     )}
                   />
                 </FormControl>
@@ -545,6 +700,8 @@ const AppointmentBooking = () => {
                   onChange={handleInputChange}
                   fullWidth
                   required
+                  error={!!errors.tenbenhnhan}
+                  helperText={errors.tenbenhnhan}
                 />
               </Grid>
               <Grid item xs={6}>
@@ -566,8 +723,8 @@ const AppointmentBooking = () => {
                   onChange={(e) => handlePhoneNumberChange(e, "sdtdangky")}
                   fullWidth
                   required
-                  error={!!errors.sdtdangkyError}
-                  helperText={errors.sdtdangkyError}
+                  error={!!errors.sdtdangky}
+                  helperText={errors.sdtdangky}
                 />
               </Grid>
               <Grid item xs={6}>
@@ -578,18 +735,26 @@ const AppointmentBooking = () => {
                   onChange={(e) => handlePhoneNumberChange(e, "sdtgoiden")}
                   fullWidth
                   required
-                  error={!!errors.sdtgoiError}
-                  helperText={errors.sdtgoiError}
+                  error={!!errors.sdtgoiden}
+                  helperText={errors.sdtgoiden}
                 />
               </Grid>
               <Grid item xs={6}>
                 <DateField
                   label="Ngày sinh"
                   value={formData.ngaythangnamsinh}
-                  onChange={(handleDobChange, handleInputChange)}
+                  onChange={(newValue) => {
+                    handleDobChange(newValue);
+                    handleInputChange({
+                      target: {
+                        name: "ngaythangnamsinh",
+                        value: newValue,
+                      },
+                    });
+                  }}
                   fullWidth
                   required
-                  error={!!dobError} // Sử dụng !! để chuyển đổi sang boolean
+                  error={!!dobError}
                   helperText={dobError}
                 />
               </Grid>
@@ -606,10 +771,20 @@ const AppointmentBooking = () => {
               <Grid item xs={6}>
                 <Autocomplete
                   value={formData.loaiBenhNhan}
-                  onChange={handleInputChange}
+                  onChange={(event, newValue) => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      loaiBenhNhan: newValue,
+                    }));
+                  }}
                   options={["Bệnh nhân mới", "Bệnh nhân tái khám"]}
                   renderInput={(params) => (
-                    <TextField {...params} label="Loại bệnh nhân" />
+                    <TextField
+                      {...params}
+                      label="Loại bệnh nhân"
+                      error={!!errors.loaiBenhNhan}
+                      helperText={errors.loaiBenhNhan}
+                    />
                   )}
                 />
               </Grid>
@@ -627,43 +802,108 @@ const AppointmentBooking = () => {
                   </Select>
                 </FormControl>
               </Grid>
+              <Grid item xs={6} sm={6} md={4}>
+                <TextField
+                  label="Tìm kiếm"
+                  variant="outlined"
+                  size="small"
+                  value={searchKeyword}
+                  onChange={handleSearchChange}
+                  sx={{ width: "100%" }}
+                  placeholder="Tìm theo tên, số điện thoại"
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Grid>
               {/* Nút hành động */}
               <Grid item xs={12} textAlign="center">
+                {!isEditing ? (
+                  <Button
+                    variant="outlined"
+                    sx={{
+                      transitionDuration: "100",
+                      borderWidth: "2px",
+                      borderColor: "#007FFF",
+                      backgroundColor: "#007FFF",
+                      color: "white",
+                      "&:hover": {
+                        backgroundColor: "#007FFF",
+                        color: "white",
+                      },
+                      marginRight: 2,
+                    }}
+                    disabled={!!dateError || !!timeError}
+                    onClick={handleSubmit}
+                  >
+                    Lưu lịch khám
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      variant="outlined"
+                      sx={{
+                        transitionDuration: "100",
+                        borderWidth: "2px",
+                        backgroundColor: "green",
+                        borderColor: "green",
+                        color: "white",
+                        "&:hover": {
+                          backgroundColor: "white",
+                          color: "green",
+                        },
+                        marginRight: 2,
+                      }}
+                      onClick={handleUpdateAppointment}
+                    >
+                      Lưu chỉnh sửa
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      sx={{
+                        transitionDuration: "100",
+                        borderWidth: "2px",
+                        borderColor: "gray",
+                        backgroundColor: "gray",
+                        color: "white",
+                        "&:hover": {
+                          backgroundColor: "white",
+                          color: "gray",
+                        },
+                        marginRight: 2,
+                      }}
+                      onClick={resetForm}
+                    >
+                      Hủy
+                    </Button>
+                  </>
+                )}
                 <Button
                   variant="outlined"
-                  color=""
                   sx={{
                     transitionDuration: "100",
                     borderWidth: "2px",
-                    backgroundColor: "Blue",
+                    borderColor: "#FF033E",
+                    backgroundColor: "#FF033E",
                     color: "white",
                     "&:hover": {
                       backgroundColor: "white",
-                      color: "Blue",
-                    },
-                    marginRight: 5,
-                  }}
-                  disabled={!!dateError || !!timeError}
-                  onClick={handleSubmit}
-                >
-                  Lưu lịch khám
-                </Button>
-                <Button
-                  variant="outlined"
-                  color=""
-                  sx={{
-                    transitionDuration: "100",
-                    borderWidth: "2px",
-                    backgroundColor: "red",
-                    color: "white",
-                    "&:hover": {
-                      backgroundColor: "white",
-                      color: "red",
+                      color: "#FF033E",
                     },
                   }}
-                  onClick={handleDelete}
+                  onClick={() => {
+                    if (formData.id) {
+                      handleDelete(formData.id);
+                    } else {
+                      resetForm();
+                    }
+                  }}
                 >
-                  Xóa
+                  {formData.id ? "Xóa" : "Làm mới"}
                 </Button>
               </Grid>
             </Grid>
@@ -693,87 +933,259 @@ const AppointmentBooking = () => {
                   <Table>
                     <TableHead
                       sx={{
-                        bgcolor: "#E9F7DD",
+                        bgcolor: "#ADFF2F",
                       }}
                     >
                       <TableRow>
-                        <TableCell sx={{ border: "2px solid #000" }}>
+                        <TableCell
+                          sx={{
+                            border: "2px solid  #E1EBEE",
+                            textAlign: "center",
+                            fontWeight: "bold",
+                            p: "2px",
+                          }}
+                        >
                           Chọn
                         </TableCell>
                         <TableCell
                           sx={{
-                            border: "2px solid #000",
+                            border: "2px solid  #E1EBEE",
+                            textAlign: "center",
+                            fontWeight: "bold",
+                            p: "2px",
                           }}
                         >
                           STT
                         </TableCell>
-                        <TableCell sx={{ border: "2px solid #000" }}>
+                        <TableCell
+                          sx={{
+                            border: "2px solid  #E1EBEE",
+                            textAlign: "center",
+                            fontWeight: "bold",
+                            p: "2px",
+                          }}
+                        >
                           Xử lý
                         </TableCell>
-                        <TableCell sx={{ border: "2px solid #000" }}>
+                        <TableCell
+                          sx={{
+                            border: "2px solid  #E1EBEE",
+                            textAlign: "center",
+                            fontWeight: "bold",
+                            p: "2px",
+                          }}
+                        >
                           Phòng
                         </TableCell>
-                        <TableCell sx={{ border: "2px solid #000" }}>
+                        <TableCell
+                          sx={{
+                            border: "2px solid  #E1EBEE",
+                            textAlign: "center",
+                            fontWeight: "bold",
+                            p: "2px",
+                          }}
+                        >
                           Giờ khám
                         </TableCell>
-                        <TableCell sx={{ border: "2px solid #000" }}>
+                        <TableCell
+                          sx={{
+                            border: "2px solid  #E1EBEE",
+                            textAlign: "center",
+                            fontWeight: "bold",
+                            p: "2px",
+                          }}
+                        >
                           Tên bệnh nhân
                         </TableCell>
-                        <TableCell sx={{ border: "2px solid #000" }}>
+                        <TableCell
+                          sx={{
+                            border: "2px solid  #E1EBEE",
+                            textAlign: "center",
+                            fontWeight: "bold",
+                            p: "2px",
+                          }}
+                        >
                           Ngày sinh
                         </TableCell>
-                        <TableCell sx={{ border: "2px solid #000" }}>
+                        <TableCell
+                          sx={{
+                            border: "2px solid  #E1EBEE",
+                            textAlign: "center",
+                            fontWeight: "bold",
+                            p: "2px",
+                          }}
+                        >
                           Số điện thoại
                         </TableCell>
-                        <TableCell sx={{ border: "2px solid #000" }}>
+                        <TableCell
+                          sx={{
+                            border: "2px solid  #E1EBEE",
+                            textAlign: "center",
+                            fontWeight: "bold",
+                            p: "2px",
+                          }}
+                        >
                           Ngày khám
                         </TableCell>
-                        <TableCell sx={{ border: "2px solid #000" }}>
+                        <TableCell
+                          sx={{
+                            border: "2px solid  #E1EBEE",
+                            textAlign: "center",
+                            fontWeight: "bold",
+                            p: "2px",
+                          }}
+                        >
                           Yêu cầu
                         </TableCell>
-                        <TableCell sx={{ border: "2px solid #000" }}>
+                        <TableCell
+                          sx={{
+                            border: "2px solid  #E1EBEE",
+                            textAlign: "center",
+                            fontWeight: "bold",
+                            p: "2px",
+                          }}
+                        >
                           Ghi chú
                         </TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {/* Dữ liệu mẫu */}
-                      {appointmentList.map((appointment, index) => (
-                        <TableRow key={appointment.id}>
-                          <TableCell sx={{ border: "2px solid #000" }}>
-                            <Button>Chọn</Button>
+                      {filteredAppointments.map((appointment, index) => (
+                        <TableRow
+                          key={appointment.id}
+                          hover
+                          sx={{
+                            cursor: "pointer",
+                            backgroundColor:
+                              appointment.trangThai === "Đã xác nhận"
+                                ? "#B2FFFF"
+                                : "#ffbcba",
+                          }}
+                        >
+                          <TableCell sx={{ border: "2px solid #E1EBEE" }}>
+                            <Button
+                              variant="contained"
+                              sx={{ bgcolor: "#89CFF0" }}
+                              size="small"
+                              onClick={() => {
+                                // Điền thông tin lịch khám vào form để sửa
+                                setFormData({
+                                  id: appointment.id,
+                                  tenbenhnhan: appointment.tenbenhnhan,
+                                  ngaythangnamsinh: new Date(
+                                    appointment.ngaythangnamsinh
+                                  ),
+                                  sdtdangky: appointment.sdtdangky,
+                                  ngayKhamBenh: new Date(
+                                    appointment.ngayKhamBenh
+                                  ),
+                                  gioKhamBenh: new Date(
+                                    `2024-01-01T${appointment.gioKhamBenh}`
+                                  ),
+                                  yeuCauDacBiet: appointment.yeuCauDacBiet,
+                                  loaiBenhNhan: appointment.loaiBenhNhan,
+                                  lichLamViecBacSi: {
+                                    tenphong: appointment.phong,
+                                    tenBacsi: appointment.bacSi,
+                                  },
+                                });
+                                // Thiết lập các state khác
+                                setSelectedRoom(appointment.phong);
+                                setSelectedDoctor(appointment.bacSi);
+                                setShift(
+                                  appointment.lichLamViecBacSi?.calam || ""
+                                );
+                                handleSelectAppointmentForEdit(appointment);
+                              }}
+                            >
+                              Chọn
+                            </Button>
                           </TableCell>
-                          <TableCell sx={{ border: "2px solid #000" }}>
-                            {index + 1}{" "}
+                          <TableCell
+                            sx={{
+                              border: "2px solid  #E1EBEE",
+                              textAlign: "center",
+                            }}
+                          >
+                            {index + 1}
                             {/* Displaying the index or appointment number */}
                           </TableCell>
-                          <TableCell sx={{ border: "2px solid #000" }}>
-                            <Checkbox />
+                          <TableCell
+                            sx={{
+                              border: "2px solid  #E1EBEE",
+                              textAlign: "center",
+                            }}
+                          >
+                            <Checkbox
+                              checked={appointment.trangThai === "Đã xác nhận"}
+                              onChange={() => handleEdit(appointment)}
+                            />
                           </TableCell>
-                          <TableCell sx={{ border: "2px solid #000" }}>
+                          <TableCell
+                            sx={{
+                              border: "2px solid  #E1EBEE",
+                              textAlign: "center",
+                            }}
+                          >
                             {appointment.phong} {/* Room data */}
                           </TableCell>
-                          <TableCell sx={{ border: "2px solid #000" }}>
+                          <TableCell
+                            sx={{
+                              border: "2px solid  #E1EBEE",
+                              textAlign: "center",
+                            }}
+                          >
                             {appointment.gioKhamBenh} {/* Appointment time */}
                           </TableCell>
-                          <TableCell sx={{ border: "2px solid #000" }}>
+                          <TableCell
+                            sx={{
+                              border: "2px solid  #E1EBEE",
+                              textAlign: "center",
+                            }}
+                          >
                             {appointment.tenbenhnhan} {/* Patient's name */}
                           </TableCell>
-                          <TableCell sx={{ border: "2px solid #000" }}>
-                            {appointment.ngaythangnamsinh}{" "}
+                          <TableCell
+                            sx={{
+                              border: "2px solid  #E1EBEE",
+                              textAlign: "center",
+                            }}
+                          >
+                            {appointment.ngaythangnamsinh}
                             {/* Patient's date of birth */}
                           </TableCell>
-                          <TableCell sx={{ border: "2px solid #000" }}>
-                            {appointment.sdtdangky}{" "}
+                          <TableCell
+                            sx={{
+                              border: "2px solid  #E1EBEE",
+                              textAlign: "center",
+                            }}
+                          >
+                            {appointment.sdtdangky}
                             {/* Patient's phone number */}
                           </TableCell>
-                          <TableCell sx={{ border: "2px solid #000" }}>
+                          <TableCell
+                            sx={{
+                              border: "2px solid  #E1EBEE",
+                              textAlign: "center",
+                            }}
+                          >
                             {appointment.ngayKhamBenh} {/* Appointment date */}
                           </TableCell>
-                          <TableCell sx={{ border: "2px solid #000" }}>
+                          <TableCell
+                            sx={{
+                              border: "2px solid  #E1EBEE",
+                              textAlign: "center",
+                            }}
+                          >
                             {appointment.yeuCauDacBiet} {/* Examination type */}
                           </TableCell>
-                          <TableCell sx={{ border: "2px solid #000" }}>
+                          <TableCell
+                            sx={{
+                              border: "2px solid  #E1EBEE",
+                              textAlign: "center",
+                            }}
+                          >
                             {appointment.loaiBenhNhan} {/* Patient's status */}
                           </TableCell>
                         </TableRow>
