@@ -18,6 +18,8 @@ import {
   Grid,
   Autocomplete,
   InputAdornment,
+  Alert,
+  Snackbar,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import Checkbox from "@mui/material/Checkbox";
@@ -31,8 +33,6 @@ import axios from "axios";
 const AppointmentBooking = () => {
   const [formData, setFormData] = useState({
     id: 0,
-    tenbenhnhan: "",
-    ngaythangnamsinh: new Date(),
     sdtdangky: "",
     sdtgoiden: "",
     yeuCauDacBiet: "",
@@ -44,9 +44,18 @@ const AppointmentBooking = () => {
     lichLamViecBacSi: {
       id: 0,
       tenphong: "",
-      tenBacsi: "",
       calam: "",
-      ngayLam: new Date(),
+      ngaybatdau: new Date(),
+      ngayketthuc: new Date(),
+      thongtinBacsi: {
+        id: 0,
+        tenBacsi: "",
+      },
+    },
+    thongtinBenhnhan: {
+      id: 0,
+      hovaTenbenhnhan: "",
+      ngaythangnamsinh: new Date(),
     },
   });
   const [isEditing, setIsEditing] = useState(false);
@@ -64,7 +73,24 @@ const AppointmentBooking = () => {
   const [selectedDoctor, setSelectedDoctor] = useState("");
   const [errors, setErrors] = useState("");
   const [patientType, setPatientType] = useState("");
-
+  const [notification, setNotification] = useState({
+    open: false,
+    message: "",
+    severity: "success",
+  });
+  const handleCloseNotification = () => {
+    setNotification((prev) => ({
+      ...prev,
+      open: false,
+    }));
+  };
+  const showNotification = (message, severity) => {
+    setNotification({
+      open: true,
+      message,
+      severity,
+    });
+  };
   useEffect(() => {
     fetchDoctorSchedules();
     fetchAppointments();
@@ -246,35 +272,77 @@ const AppointmentBooking = () => {
 
   // Validate form before submission
   const validateForm = () => {
-    const newErrors = {
-      tenbenhnhan: !formData.tenbenhnhan
-        ? "Tên bệnh nhân không được trống"
-        : "",
-      sdtdangky: !formData.sdtdangky
-        ? "Số điện thoại không được trống"
-        : !/^[0-9]{10,11}$/.test(formData.sdtdangky)
-        ? "Số điện thoại không hợp lệ"
-        : "",
-      sdtgoiden:
-        formData.sdtgoiden && !/^[0-9]{10,11}$/.test(formData.sdtgoiden)
-          ? "Số điện thoại không hợp lệ"
-          : "",
-      room: !selectedRoom ? "Vui lòng chọn phòng khám" : "",
-      doctor: !selectedDoctor ? "Vui lòng chọn bác sĩ" : "",
-      shift: !shift ? "Vui lòng chọn ca làm" : "",
-      ngayKhamBenh: dateError || "",
-      gioKhamBenh: timeError || "",
-      ngaythangnamsinh: dobError || "",
-    };
+    const newErrors = {};
+
+    // Kiểm tra phòng khám
+    if (!selectedRoom) {
+      newErrors.room = "Vui lòng chọn phòng khám";
+    }
+
+    // Kiểm tra ca làm việc
+    if (!shift) {
+      newErrors.shift = "Vui lòng chọn ca làm việc";
+    }
+
+    // Kiểm tra ngày khám
+    if (!formData.ngayKhamBenh) {
+      newErrors.ngayKhamBenh = "Vui lòng chọn ngày khám";
+    }
+
+    // Kiểm tra bác sĩ
+    if (!selectedDoctor) {
+      newErrors.doctor = "Vui lòng chọn bác sĩ";
+    }
+
+    // Kiểm tra tên bệnh nhân
+    if (!formData.tenbenhnhan?.trim()) {
+      newErrors.tenbenhnhan = "Vui lòng nhập tên bệnh nhân";
+    }
+
+    // Kiểm tra giờ khám
+    if (!formData.gioKhamBenh) {
+      newErrors.gioKhamBenh = "Vui lòng chọn giờ khám";
+    }
+
+    // Kiểm tra số điện thoại đăng ký
+    if (!formData.sdtdangky?.trim()) {
+      newErrors.sdtdangky = "Vui lòng nhập số điện thoại đăng ký";
+    } else if (!/^[0-9]{10,11}$/.test(formData.sdtdangky)) {
+      newErrors.sdtdangky = "Số điện thoại không hợp lệ (10-11 số)";
+    }
+
+    // Kiểm tra ngày sinh
+    if (!formData.ngaythangnamsinh) {
+      newErrors.ngaythangnamsinh = "Vui lòng chọn ngày sinh";
+    }
+
+    // Kiểm tra loại bệnh nhân
+    if (!formData.loaiBenhNhan) {
+      newErrors.loaiBenhNhan = "Vui lòng chọn loại bệnh nhân";
+    }
+
+    // Cập nhật state errors
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+
+    // Nếu có lỗi, hiển thị thông báo
+    if (Object.keys(newErrors).length > 0) {
+      const errorMessages = Object.values(newErrors).join("\n");
+      showNotification(errorMessages, "error");
+      return false;
+    }
+
+    return true;
   };
 
   // Submit appointment
   const handleSubmit = async () => {
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      showNotification("Vui lòng điền đầy đủ thông tin bắt buộc", "error");
+      return;
+    }
 
     try {
+      // Tìm lịch làm việc bác sĩ phù hợp
       const matchingScheduleResponse = await axios.get(
         "http://localhost:5038/api/Lichlamviecbacsi/getFilteredSchedules",
         {
@@ -291,45 +359,41 @@ const AppointmentBooking = () => {
         !matchingScheduleResponse.data.data ||
         matchingScheduleResponse.data.data.length === 0
       ) {
+        showNotification("Không tìm thấy lịch làm việc của bác sĩ", "error");
         return;
       }
 
       const matchingSchedule = matchingScheduleResponse.data.data[0];
 
-      // Ensure consistent data formatting
+      // Chuẩn bị dữ liệu theo đúng cấu trúc API yêu cầu
       const submitData = {
-        id: matchingSchedule.id,
-        tenbenhnhan: formData.tenbenhnhan,
-        ngaythangnamsinh:
-          formData.ngaythangnamsinh instanceof Date
-            ? formData.ngaythangnamsinh.toISOString().split("T")[0]
-            : formData.ngaythangnamsinh,
         sdtdangky: formData.sdtdangky,
-        sdtgoiden: formData.sdtgoiden,
-        yeuCauDacBiet: formData.yeuCauDacBiet,
-        ngayKhamBenh:
-          formData.ngayKhamBenh instanceof Date
-            ? formData.ngayKhamBenh.toISOString().split("T")[0]
-            : formData.ngayKhamBenh,
-        gioKhamBenh:
-          formData.gioKhamBenh instanceof Date
-            ? formData.gioKhamBenh.toLocaleTimeString("en-GB", {
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: false,
-              })
-            : formData.gioKhamBenh,
+        sdtgoiden: formData.sdtgoiden || "",
+        yeuCauDacBiet: formData.yeuCauDacBiet || "",
+        ngayKhamBenh: formData.ngayKhamBenh.toISOString().split("T")[0],
+        gioKhamBenh: formData.gioKhamBenh.toLocaleTimeString("en-GB", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        }),
         loaiBenhNhan: formData.loaiBenhNhan || "",
         trangThai: "Chưa xác nhận",
         lichLamViecBacSi: {
           id: matchingSchedule.id,
           tenphong: matchingSchedule.tenphong,
-          tenBacsi: matchingSchedule.tenBacsi,
           calam: matchingSchedule.calam,
-          ngayLam: matchingSchedule.ngayLam,
+          thongtinBacsi: {
+            id: matchingSchedule.thongtinBacsi?.id || 0,
+            tenBacsi: matchingSchedule.tenBacsi,
+          },
+        },
+        thongtinBenhnhan: {
+          hovaTenbenhnhan: formData.tenbenhnhan,
+          ngaythangnamsinh: formData.ngaythangnamsinh
+            .toISOString()
+            .split("T")[0],
         },
       };
-
       const response = await axios.post(
         "http://localhost:5038/api/LichKhamBenh/createBooking",
         submitData,
@@ -341,13 +405,17 @@ const AppointmentBooking = () => {
         }
       );
 
-      fetchAppointments();
-      resetForm();
+      if (response.data) {
+        showNotification("Tạo lịch khám thành công", "success");
+        fetchAppointments();
+        resetForm();
+      }
     } catch (error) {
-      console.error("Full error details:", error.response?.data || error);
-      const errorMessage = error.response?.data?.Errors
-        ? error.response.data.Errors.map((e) => e.ErrorMessage).join(", ")
-        : error.response?.data?.Message || "Có lỗi xảy ra khi tạo lịch khám";
+      const errorMessage =
+        error.response?.data?.Message ||
+        error.response?.data?.Errors?.map((e) => e.ErrorMessage).join(", ") ||
+        "Có lỗi xảy ra khi tạo lịch khám";
+      showNotification(errorMessage, "error");
     }
   };
   // Delete appointment
@@ -359,9 +427,10 @@ const AppointmentBooking = () => {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
+      showNotification("Xóa lịch khám thành công", "success");
       fetchAppointments();
     } catch (error) {
-      console.error("Error deleting appointment:", error);
+      showNotification("Có lỗi xảy ra khi xóa lịch khám", error);
     }
   };
   const handleEdit = async (appointment) => {
@@ -460,16 +529,11 @@ const AppointmentBooking = () => {
           },
         }
       );
-
-      // Reset form and fetch updated list
+      handleUpdateAppointment;
       resetForm();
       fetchAppointments();
-
-      // Show success message
-      alert("Cập nhật lịch khám thành công!");
     } catch (error) {
-      console.error("Error updating appointment:", error);
-      alert("Có lỗi xảy ra khi cập nhật lịch khám");
+      showNotification("Có lỗi xảy ra khi cập nhật lịch khám", "error");
     }
   };
   const [searchKeyword, setSearchKeyword] = useState("");
@@ -504,7 +568,7 @@ const AppointmentBooking = () => {
       ngaythangnamsinh: new Date(),
       sdtdangky: "",
       sdtgoiden: "",
-      yeuCauDacBiet: "",
+      yeuCauDacBiet: "", // Ensure this is initialized as empty string
       ngayKhamBenh: new Date(),
       gioKhamBenh: new Date(),
       loaiBenhNhan: "",
@@ -525,7 +589,6 @@ const AppointmentBooking = () => {
     setSelectedDoctor("");
     setIsEditing(false);
   };
-
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={enGB}>
       <Box
@@ -611,6 +674,7 @@ const AppointmentBooking = () => {
                         label="Chọn phòng"
                         error={!!errors.room}
                         helperText={errors.room}
+                        required
                       />
                     )}
                   />
@@ -629,6 +693,7 @@ const AppointmentBooking = () => {
                         label="Chọn ca làm"
                         error={!!errors.shift}
                         helperText={errors.shift}
+                        required
                       />
                     )}
                   />
@@ -638,11 +703,11 @@ const AppointmentBooking = () => {
                 <DateField
                   fullWidth
                   label="Ngày khám bệnh"
-                  InputLabelProps={{ shrink: true }}
-                  defaultValue={new Date()}
+                  required
+                  value={formData.ngayKhamBenh}
                   onChange={handleDateChange}
-                  helperText={dateError}
-                  error={!!dateError}
+                  error={!!dateError || !!errors.ngayKhamBenh}
+                  helperText={dateError || errors.ngayKhamBenh}
                 />
               </Grid>
               <Grid item xs={12}>
@@ -658,6 +723,7 @@ const AppointmentBooking = () => {
                         label="Chọn bác sĩ"
                         error={!!errors.doctor}
                         helperText={errors.doctor}
+                        required
                       />
                     )}
                   />
@@ -711,8 +777,8 @@ const AppointmentBooking = () => {
                   onChange={handleTimeChange}
                   fullWidth
                   required
-                  error={!!timeError} // Sử dụng !! để chuyển đổi sang boolean
-                  helperText={timeError}
+                  error={!!timeError || !!errors.gioKhamBenh}
+                  helperText={timeError || errors.gioKhamBenh}
                 />
               </Grid>
               <Grid item xs={6}>
@@ -743,19 +809,11 @@ const AppointmentBooking = () => {
                 <DateField
                   label="Ngày sinh"
                   value={formData.ngaythangnamsinh}
-                  onChange={(newValue) => {
-                    handleDobChange(newValue);
-                    handleInputChange({
-                      target: {
-                        name: "ngaythangnamsinh",
-                        value: newValue,
-                      },
-                    });
-                  }}
+                  onChange={handleDobChange}
                   fullWidth
                   required
-                  error={!!dobError}
-                  helperText={dobError}
+                  error={!!dobError || !!errors.ngaythangnamsinh}
+                  helperText={dobError || errors.ngaythangnamsinh}
                 />
               </Grid>
               <Grid item xs={6}>
@@ -784,6 +842,7 @@ const AppointmentBooking = () => {
                       label="Loại bệnh nhân"
                       error={!!errors.loaiBenhNhan}
                       helperText={errors.loaiBenhNhan}
+                      required
                     />
                   )}
                 />
@@ -832,8 +891,8 @@ const AppointmentBooking = () => {
                       backgroundColor: "#007FFF",
                       color: "white",
                       "&:hover": {
-                        backgroundColor: "#007FFF",
-                        color: "white",
+                        backgroundColor: "white",
+                        color: "#007FFF",
                       },
                       marginRight: 2,
                     }}
@@ -1197,7 +1256,22 @@ const AppointmentBooking = () => {
             </Grid>
           </Grid>
         </Grid>
-      </Box>
+      </Box>{" "}
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={6000}
+        onClose={handleCloseNotification}
+        anchorOrigin={{ vertical: "top", horizontal: "right" }}
+      >
+        <Alert
+          onClose={handleCloseNotification}
+          severity={notification.severity}
+          variant="filled"
+          sx={{ width: "100%" }}
+        >
+          {notification.message}
+        </Alert>
+      </Snackbar>
     </LocalizationProvider>
   );
 };

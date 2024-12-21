@@ -321,31 +321,116 @@ const AccountManagement = () => {
             height: "500px",
           }}
         >
-          0{" "}
           <TableContainer
             component={Paper}
             sx={{ height: "470px", overflowY: "auto" }}
           >
             <Table>
-              <TableHead sx={{ bgcolor: "#E9F7DD" }}>
+              <TableHead sx={{ bgcolor: "#ADFF2F" }}>
                 <TableRow>
-                  <TableCell>Tên người dùng</TableCell>
-                  <TableCell>Số điện thoại</TableCell>
-                  <TableCell>Tên tài khoản</TableCell>
+                  <TableCell
+                    sx={{
+                      border: "2px solid  #E1EBEE",
+                      textAlign: "center",
+                      fontWeight: "bold",
+                      p: "2px",
+                    }}
+                  >
+                    Tên người dùng
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      border: "2px solid  #E1EBEE",
+                      textAlign: "center",
+                      fontWeight: "bold",
+                      p: "2px",
+                    }}
+                  >
+                    Số điện thoại
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      border: "2px solid  #E1EBEE",
+                      textAlign: "center",
+                      fontWeight: "bold",
+                      p: "2px",
+                    }}
+                  >
+                    Tên tài khoản
+                  </TableCell>
                   {/* <TableCell>Mật khẩu</TableCell> */}
-                  <TableCell>Vai trò</TableCell>
-                  <TableCell>Hành động</TableCell>
+                  <TableCell
+                    sx={{
+                      border: "2px solid  #E1EBEE",
+                      textAlign: "center",
+                      fontWeight: "bold",
+                      p: "2px",
+                    }}
+                  >
+                    Vai trò
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      border: "2px solid  #E1EBEE",
+                      textAlign: "center",
+                      fontWeight: "bold",
+                      p: "2px",
+                    }}
+                  >
+                    Hành động
+                  </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {accountList.map((acc) => (
                   <TableRow key={acc.id}>
-                    <TableCell>{acc.tennguoidung}</TableCell>
-                    <TableCell>{acc.sodienthoai}</TableCell>
-                    <TableCell>{acc.tentaiKhoan}</TableCell>
+                    <TableCell
+                      sx={{
+                        border: "2px solid  #E1EBEE",
+                        textAlign: "center",
+
+                        p: "2px",
+                      }}
+                    >
+                      {acc.tennguoidung}
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        border: "2px solid  #E1EBEE",
+                        textAlign: "center",
+
+                        p: "2px",
+                      }}
+                    >
+                      {acc.sodienthoai}
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        border: "2px solid  #E1EBEE",
+                        textAlign: "center",
+
+                        p: "2px",
+                      }}
+                    >
+                      {acc.tentaiKhoan}
+                    </TableCell>
                     {/* <TableCell>{acc.matkhau}</TableCell> */}
-                    <TableCell>{acc.vaitro}</TableCell>
-                    <TableCell>
+                    <TableCell
+                      sx={{
+                        border: "2px solid  #E1EBEE",
+                        textAlign: "center",
+                        p: "2px",
+                      }}
+                    >
+                      {acc.vaitro}
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        border: "2px solid  #E1EBEE",
+                        textAlign: "center",
+                        p: "2px",
+                      }}
+                    >
                       <Button
                         variant="outlined"
                         color=""

@@ -148,7 +148,11 @@ const AppointmentManagement = () => {
               />
               <Button
                 variant="contained"
-                sx={{ bgcolor: "#00FFFF", color: "#a4acb3" }}
+                sx={{
+                  bgcolor: "#00FFFF",
+                  color: "#a4acb3",
+                  "&:hover": { bgcolor: "white", color: "#00FFFF" },
+                }}
                 startIcon={<SearchIcon />}
                 onClick={fetchAppointments}
               >
@@ -156,7 +160,11 @@ const AppointmentManagement = () => {
               </Button>
               <Button
                 variant="contained"
-                sx={{ bgcolor: "#DDA0DD", color: "#a4acb3" }}
+                sx={{
+                  bgcolor: "#DDA0DD",
+                  color: "#a4acb3",
+                  "&:hover": { bgcolor: "white", color: "#DDA0DD" },
+                }}
                 startIcon={<RefreshIcon />}
                 onClick={() => {
                   setSearchDate(null);
@@ -167,7 +175,11 @@ const AppointmentManagement = () => {
               </Button>
               <Button
                 variant="contained"
-                sx={{ bgcolor: "#ADFF2F", color: "#a4acb3" }}
+                sx={{
+                  bgcolor: "#ADFF2F",
+                  color: "#a4acb3",
+                  "&:hover": { bgcolor: "white", color: "#ADFF2F" },
+                }}
                 startIcon={<FileDownloadIcon />}
                 onClick={handleExport}
                 disabled={appointments.length === 0}
@@ -264,19 +276,71 @@ const AppointmentManagement = () => {
                   <TableBody>
                     {appointments.map((appointment, index) => (
                       <TableRow key={appointment.id}>
-                        <TableCell>{index + 1}</TableCell>
-                        <TableCell>{appointment.tenbenhnhan}</TableCell>
-                        <TableCell>
+                        <TableCell
+                          sx={{
+                            border: "2px solid  #E1EBEE",
+                            textAlign: "center",
+                            p: "2px",
+                          }}
+                        >
+                          {index + 1}
+                        </TableCell>
+                        <TableCell
+                          sx={{
+                            border: "2px solid  #E1EBEE",
+                            textAlign: "center",
+                            p: "2px",
+                          }}
+                        >
+                          {appointment.tenbenhnhan}
+                        </TableCell>
+                        <TableCell
+                          sx={{
+                            border: "2px solid  #E1EBEE",
+                            textAlign: "center",
+                            p: "2px",
+                          }}
+                        >
                           {dayjs(appointment.ngaythangnamsinh).format(
                             "DD/MM/YYYY"
                           )}
                         </TableCell>
-                        <TableCell>{appointment.sdtdangky}</TableCell>
-                        <TableCell>
+                        <TableCell
+                          sx={{
+                            border: "2px solid  #E1EBEE",
+                            textAlign: "center",
+                            p: "2px",
+                          }}
+                        >
+                          {appointment.sdtdangky}
+                        </TableCell>
+                        <TableCell
+                          sx={{
+                            border: "2px solid  #E1EBEE",
+                            textAlign: "center",
+                            p: "2px",
+                          }}
+                        >
                           {dayjs(appointment.ngayKhamBenh).format("DD/MM/YYYY")}
                         </TableCell>
-                        <TableCell>{appointment.gioKhamBenh}</TableCell>
-                        <TableCell>{appointment.trangThai}</TableCell>
+                        <TableCell
+                          sx={{
+                            border: "2px solid  #E1EBEE",
+                            textAlign: "center",
+                            p: "2px",
+                          }}
+                        >
+                          {appointment.gioKhamBenh}
+                        </TableCell>
+                        <TableCell
+                          sx={{
+                            border: "2px solid  #E1EBEE",
+                            textAlign: "center",
+                            p: "2px",
+                          }}
+                        >
+                          {appointment.trangThai}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
