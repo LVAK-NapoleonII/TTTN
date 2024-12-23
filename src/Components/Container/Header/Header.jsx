@@ -135,6 +135,10 @@ const Header = () => {
               <AssessmentIcon sx={{ marginRight: "5px" }} />
               Thống kê
             </MenuButton>
+            <MenuButton component={Link} to="/Doctorschedule">
+              <AssessmentIcon sx={{ marginRight: "5px" }} />
+              Lịch làm việc bác sĩ
+            </MenuButton>
           </Box>
           <Box>
             <Box

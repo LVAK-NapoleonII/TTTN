@@ -77,7 +77,7 @@ const AppointmentManagement = () => {
   const handleExport = () => {
     const exportData = appointments.map((appointment, index) => ({
       ID: index + 1,
-      "Tên bệnh nhân": appointment.tenbenhnhan,
+      "Tên bệnh nhân": appointment.hovaTenbenhnhan,
       "Ngày sinh": dayjs(appointment.ngaythangnamsinh).format("DD/MM/YYYY"),
       "Số điện thoại": appointment.sdtdangky,
       "Ngày khám bệnh": dayjs(appointment.ngayKhamBenh).format("DD/MM/YYYY"),
@@ -219,7 +219,7 @@ const AppointmentManagement = () => {
                           p: "2px",
                         }}
                       >
-                        Tên bạn nhân
+                        Tên bệnh nhân
                       </TableCell>
                       <TableCell
                         sx={{
@@ -292,7 +292,7 @@ const AppointmentManagement = () => {
                             p: "2px",
                           }}
                         >
-                          {appointment.tenbenhnhan}
+                          {appointment.hovaTenbenhnhan}
                         </TableCell>
                         <TableCell
                           sx={{

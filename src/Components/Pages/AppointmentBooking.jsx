@@ -596,7 +596,7 @@ const AppointmentBooking = () => {
     // Kiểm tra từ khóa tìm kiếm
     const matchKeyword =
       !searchKeyword ||
-      appointment.tenbenhnhan
+      appointment.hovaTenbenhnhan
         .toLowerCase()
         .includes(searchKeyword.toLowerCase()) ||
       appointment.sdtdangky.includes(searchKeyword) ||
