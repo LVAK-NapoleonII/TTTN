@@ -168,11 +168,12 @@ const AppointmentBooking = () => {
       }));
     }
   };
+
   const handleSelectAppointmentForEdit = (appointment) => {
     setIsEditing(true);
     setFormData({
       id: appointment.id,
-      tenbenhnhan: appointment.tenbenhnhan,
+      tenbenhnhan: appointment.hovaTenbenhnhan,
       ngaythangnamsinh: new Date(appointment.ngaythangnamsinh),
       sdtdangky: appointment.sdtdangky,
       sdtgoiden: appointment.sdtgoiden || "",
@@ -182,12 +183,25 @@ const AppointmentBooking = () => {
       loaiBenhNhan: appointment.loaiBenhNhan || "",
       trangThai: appointment.trangThai,
       lichLamViecBacSi: {
-        tenphong: appointment.lichLamViecBacSi?.tenphong || "",
-        tenBacsi: appointment.lichLamViecBacSi?.tenBacsi || "",
-        calam: appointment.lichLamViecBacSi?.calam || "",
+        tenphong: appointment.phong,
+        calam: appointment.calam,
+        thongtinBacsi: {
+          tenBacsi: appointment.bacSi,
+        },
+      },
+      thongtinBenhnhan: {
+        // Explicitly set patient info
+        id: appointment.thongtinBenhnhan?.id || 0,
+        hovaTenbenhnhan: appointment.hovaTenbenhnhan,
+        ngaythangnamsinh: appointment.ngaythangnamsinh,
       },
     });
+
+    setSelectedRoom(appointment.phong);
+    setSelectedDoctor(appointment.bacSi);
+    setShift(appointment.calam);
   };
+
   const handlePhoneNumberChange = (e, fieldName) => {
     const value = e.target.value;
     const phoneRegex = /^[0-9]*$/; // Chỉ cho phép số
@@ -252,11 +266,13 @@ const AppointmentBooking = () => {
       }
     }
   };
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: value,
+      // Fix for yeuCauDacBiet field
+      [name === "yeucaudatbiet" ? "yeuCauDacBiet" : name]: value,
     }));
   };
 
@@ -433,33 +449,36 @@ const AppointmentBooking = () => {
       showNotification("Có lỗi xảy ra khi xóa lịch khám", error);
     }
   };
+
   const handleEdit = async (appointment) => {
     try {
-      // Determine the new status
       const newStatus =
         appointment.trangThai === "Đã xác nhận"
           ? "Chưa xác nhận"
           : "Đã xác nhận";
+
       const updatedAppointment = {
         id: appointment.id,
-        tenbenhnhan: appointment.tenbenhnhan,
-        ngaythangnamsinh: appointment.ngaythangnamsinh,
         sdtdangky: appointment.sdtdangky,
         sdtgoiden: appointment.sdtgoiden || "",
         yeuCauDacBiet: appointment.yeuCauDacBiet || "",
         ngayKhamBenh: appointment.ngayKhamBenh,
         gioKhamBenh: appointment.gioKhamBenh,
-        loaiBenhNhan: appointment.loaiBenhNhan || "",
+        loaiBenhNhan: appointment.loaiBenhNhan,
         trangThai: newStatus,
+        thongtinBenhnhan: {
+          hovaTenbenhnhan: appointment.hovaTenbenhnhan,
+          ngaythangnamsinh: appointment.ngaythangnamsinh,
+        },
         lichLamViecBacSi: {
-          id: appointment.lichLamViecBacSi?.id || 0,
-          tenphong: appointment.lichLamViecBacSi?.tenphong || "",
-          tenBacsi: appointment.lichLamViecBacSi?.tenBacsi || "",
-          calam: appointment.lichLamViecBacSi?.calam || "",
-          ngayLam: appointment.lichLamViecBacSi?.ngayLam || new Date(),
+          tenphong: appointment.phong,
+          calam: appointment.calam,
+          thongtinBacsi: {
+            tenBacsi: appointment.bacSi,
+          },
         },
       };
-      // Send the update request
+
       const response = await axios.put(
         `http://localhost:5038/api/LichKhamBenh/edit/${appointment.id}`,
         updatedAppointment,
@@ -471,54 +490,71 @@ const AppointmentBooking = () => {
         }
       );
 
-      // Check for successful response
       if (response.status === 200) {
-        // Refresh the appointment list
-        fetchAppointments();
-
-        // Optional: Show a success message
-        alert(`Cập nhật trạng thái thành công: ${newStatus}`);
+        showNotification(
+          `Cập nhật trạng thái thành công: ${newStatus}`,
+          "success"
+        );
+        fetchAppointments(); // Refresh the list
       }
     } catch (error) {
-      // Handle any errors that occur during the update
-      console.error("Lỗi cập nhật trạng thái:", error);
-
-      // Provide more detailed error feedback
       const errorMessage =
         error.response?.data?.message ||
-        error.response?.data?.Errors?.map((e) => e.ErrorMessage).join(", ") ||
-        error.message ||
+        error.response?.data?.Message ||
         "Cập nhật trạng thái thất bại, vui lòng thử lại!";
-
-      alert(errorMessage);
+      showNotification(errorMessage, "error");
     }
   };
+
   const handleUpdateAppointment = async () => {
     try {
-      const token = localStorage.getItem("token");
+      if (!validateForm()) {
+        return;
+      }
 
-      // Prepare data for update
+      // Ensure all dates are properly formatted
+      const formattedDate =
+        formData.ngayKhamBenh instanceof Date
+          ? formData.ngayKhamBenh.toISOString().split("T")[0]
+          : formData.ngayKhamBenh;
+
+      const formattedDob =
+        formData.ngaythangnamsinh instanceof Date
+          ? formData.ngaythangnamsinh.toISOString().split("T")[0]
+          : formData.ngaythangnamsinh;
+
+      const formattedTime =
+        formData.gioKhamBenh instanceof Date
+          ? formData.gioKhamBenh.toLocaleTimeString("en-GB", {
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+            })
+          : formData.gioKhamBenh;
+
+      // Prepare update data matching the backend model
       const updateData = {
-        ...formData,
-        ngaythangnamsinh:
-          formData.ngaythangnamsinh instanceof Date
-            ? formData.ngaythangnamsinh.toISOString().split("T")[0]
-            : formData.ngaythangnamsinh,
-        ngayKhamBenh:
-          formData.ngayKhamBenh instanceof Date
-            ? formData.ngayKhamBenh.toISOString().split("T")[0]
-            : formData.ngayKhamBenh,
-        gioKhamBenh:
-          formData.gioKhamBenh instanceof Date
-            ? formData.gioKhamBenh.toLocaleTimeString("en-GB", {
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: false,
-              })
-            : formData.gioKhamBenh,
+        id: formData.id,
+        sdtdangky: formData.sdtdangky,
+        sdtgoiden: formData.sdtgoiden || "",
+        yeuCauDacBiet: formData.yeuCauDacBiet || "",
+        ngayKhamBenh: formattedDate,
+        gioKhamBenh: formattedTime,
+        loaiBenhNhan: formData.loaiBenhNhan || "",
+        trangThai: formData.trangThai || "Chưa xác nhận",
+        thongtinBenhnhan: {
+          hovaTenbenhnhan: formData.tenbenhnhan,
+          ngaythangnamsinh: formattedDob,
+        },
+        lichLamViecBacSi: {
+          tenphong: selectedRoom,
+          calam: shift,
+          thongtinBacsi: {
+            tenBacsi: selectedDoctor,
+          },
+        },
       };
 
-      // Send update request
       const response = await axios.put(
         `http://localhost:5038/api/LichKhamBenh/edit/${formData.id}`,
         updateData,
@@ -529,13 +565,20 @@ const AppointmentBooking = () => {
           },
         }
       );
-      handleUpdateAppointment;
-      resetForm();
-      fetchAppointments();
+
+      if (response.status === 200) {
+        showNotification("Cập nhật thông tin thành công", "success");
+        resetForm();
+        fetchAppointments();
+      }
     } catch (error) {
-      showNotification("Có lỗi xảy ra khi cập nhật lịch khám", "error");
+      console.error("Update Error:", error.response?.data || error.message);
+      const errorMessage =
+        error.response?.data?.message || "Có lỗi xảy ra khi cập nhật lịch khám";
+      showNotification(errorMessage, "error");
     }
   };
+
   const [searchKeyword, setSearchKeyword] = useState("");
 
   const handleSearchChange = (e) => {
@@ -822,17 +865,17 @@ const AppointmentBooking = () => {
                   label="Yêu cầu đặc biệt"
                   fullWidth
                   required
-                  value={formData.yeuCauDacBiet.Text}
+                  value={formData.yeuCauDacBiet}
                   onChange={handleInputChange}
                 />
               </Grid>
               <Grid item xs={6}>
                 <Autocomplete
-                  value={formData.loaiBenhNhan}
+                  value={formData.loaiBenhNhan || null}
                   onChange={(event, newValue) => {
                     setFormData((prev) => ({
                       ...prev,
-                      loaiBenhNhan: newValue,
+                      loaiBenhNhan: newValue || "",
                     }));
                   }}
                   options={["Bệnh nhân mới", "Bệnh nhân tái khám"]}
@@ -1131,7 +1174,7 @@ const AppointmentBooking = () => {
                                 // Điền thông tin lịch khám vào form để sửa
                                 setFormData({
                                   id: appointment.id,
-                                  tenbenhnhan: appointment.tenbenhnhan,
+                                  tenbenhnhan: appointment.hovaTenbenhnhan,
                                   ngaythangnamsinh: new Date(
                                     appointment.ngaythangnamsinh
                                   ),
@@ -1203,7 +1246,7 @@ const AppointmentBooking = () => {
                               textAlign: "center",
                             }}
                           >
-                            {appointment.tenbenhnhan} {/* Patient's name */}
+                            {appointment.hovaTenbenhnhan} {/* Patient's name */}
                           </TableCell>
                           <TableCell
                             sx={{
