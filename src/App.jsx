@@ -10,6 +10,7 @@ import AccountManagement from "./Components/Pages/AccountManagement";
 import Statistics from "./Components/Pages/Statistics.jsx";
 import Exportexcel from "./Components/Pages/Exportexcel.jsx";
 import Doctorschedule from "./Components/Pages/Doctorschedule.jsx";
+import SMSNotification from "./Components/Pages/SMSNotification.jsx";
 import { AuthProvider } from "E:/takingcareFE/src/Components/AuthContext.jsx";
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
           <Route path="/Exportexcel" element={<Exportexcel />} />
           <Route path="/Statistics" element={<Statistics />} />
           <Route path="/Doctorschedule" element={<Doctorschedule />} />
+          <Route path="/SMSNotification" element={<SMSNotification />} />
         </Routes>
         <Footer />
       </AuthProvider>

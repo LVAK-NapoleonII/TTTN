@@ -63,7 +63,7 @@ const AppointmentManagement = () => {
       setAppointments(data);
       setError("");
     } catch (err) {
-      setError("Failed to load appointments: " + err.message);
+      setError("Không có thông tin về cuộc hẹn ");
     } finally {
       setLoading(false);
     }
@@ -83,6 +83,8 @@ const AppointmentManagement = () => {
       "Ngày khám bệnh": dayjs(appointment.ngayKhamBenh).format("DD/MM/YYYY"),
       "Giờ khám bệnh": appointment.gioKhamBenh,
       "Loại bệnh nhân": appointment.loaiBenhNhan,
+      "Phòng khám": appointment.phong,
+      "Bác sĩ khám": appointment.bacSi,
       "Trang thái": appointment.trangThai,
       "Yêu cầu đặc biệt": appointment.yeuCauDacBiet || "None",
     }));
@@ -269,6 +271,36 @@ const AppointmentManagement = () => {
                           p: "2px",
                         }}
                       >
+                        Loại bệnh nhân
+                      </TableCell>
+                      <TableCell
+                        sx={{
+                          border: "2px solid  #E1EBEE",
+                          textAlign: "center",
+                          fontWeight: "bold",
+                          p: "2px",
+                        }}
+                      >
+                        Phòng khám
+                      </TableCell>
+                      <TableCell
+                        sx={{
+                          border: "2px solid  #E1EBEE",
+                          textAlign: "center",
+                          fontWeight: "bold",
+                          p: "2px",
+                        }}
+                      >
+                        Bác sĩ khám
+                      </TableCell>
+                      <TableCell
+                        sx={{
+                          border: "2px solid  #E1EBEE",
+                          textAlign: "center",
+                          fontWeight: "bold",
+                          p: "2px",
+                        }}
+                      >
                         Trạng thái
                       </TableCell>
                     </TableRow>
@@ -331,6 +363,33 @@ const AppointmentManagement = () => {
                           }}
                         >
                           {appointment.gioKhamBenh}
+                        </TableCell>
+                        <TableCell
+                          sx={{
+                            border: "2px solid  #E1EBEE",
+                            textAlign: "center",
+                            p: "2px",
+                          }}
+                        >
+                          {appointment.loaiBenhNhan}
+                        </TableCell>
+                        <TableCell
+                          sx={{
+                            border: "2px solid  #E1EBEE",
+                            textAlign: "center",
+                            p: "2px",
+                          }}
+                        >
+                          {appointment.phong}
+                        </TableCell>
+                        <TableCell
+                          sx={{
+                            border: "2px solid  #E1EBEE",
+                            textAlign: "center",
+                            p: "2px",
+                          }}
+                        >
+                          {appointment.bacSi}
                         </TableCell>
                         <TableCell
                           sx={{

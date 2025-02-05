@@ -18,42 +18,135 @@ import {
   Paper,
   Snackbar,
   Alert,
+  CircularProgress,
+  Autocomplete,
 } from "@mui/material";
 import axios from "axios";
 
-const Doctorschedule = () => {
-  const [account, setAccount] = useState({
+const DoctorSchedule = () => {
+  const [schedule, setSchedule] = useState({
     id: 0,
-    tentaiKhoan: "",
-    matkhau: "",
-    tennguoidung: "",
-    sodienthoai: "",
-    vaitro: "",
+    ngaybatdau: "",
+    ngayketthuc: "",
+    tenphong: "",
+    calam: "",
+    thongtinBacsi: {
+      id: 0,
+      tenBacsi: "",
+    },
   });
-  const [accountList, setAccountList] = useState([]);
+
+  const [suggestions, setSuggestions] = useState({
+    doctors: [],
+    rooms: [],
+  });
+  const [selectedWeek, setSelectedWeek] = useState("");
+  const [filterWeek, setFilterWeek] = useState("");
+  const [scheduleList, setScheduleList] = useState([]);
+  const [filteredScheduleList, setFilteredScheduleList] = useState([]);
   const [isEditing, setIsEditing] = useState(false);
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState("success");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const fetchAccounts = async () => {
+  // Hàm lấy ngày đầu tuần (thứ 2) từ một ngày bất kỳ
+  const getMonday = (d) => {
+    const date = new Date(d);
+    const day = date.getDay();
+    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+    return new Date(date.setDate(diff));
+  };
+
+  // Hàm lấy ngày cuối tuần (chủ nhật) từ ngày đầu tuần
+  const getSunday = (monday) => {
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    return sunday;
+  };
+
+  // Format date to YYYY-MM-DD
+  const formatDate = (date) => {
+    return date.toISOString().split("T")[0];
+  };
+
+  // Xử lý khi chọn tuần
+  const handleWeekChange = (event) => {
+    const selectedDate = new Date(event.target.value);
+    const monday = getMonday(selectedDate);
+    const sunday = getSunday(monday);
+
+    setSelectedWeek(event.target.value);
+    setSchedule({
+      ...schedule,
+      ngaybatdau: formatDate(monday),
+      ngayketthuc: formatDate(sunday),
+    });
+  };
+
+  // Xử lý khi chọn tuần để lọc danh sách
+  const handleFilterWeekChange = (event) => {
+    const selectedDate = new Date(event.target.value);
+    const monday = getMonday(selectedDate);
+    const sunday = getSunday(monday);
+    setFilterWeek(event.target.value);
+
+    // Lọc danh sách theo tuần đã chọn
+    const filtered = scheduleList.filter((sch) => {
+      const scheduleDate = new Date(sch.ngaybatdau);
+      return scheduleDate >= monday && scheduleDate <= sunday;
+    });
+    setFilteredScheduleList(filtered);
+  };
+  const fetchSchedules = async () => {
     try {
       const token = localStorage.getItem("token");
       const response = await axios.get(
-        "http://localhost:5038/api/Taikhoan/getAll",
+        "http://localhost:5038/api/Lichlamviecbacsi/getAll",
         {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-      setAccountList(response.data.data);
+      setScheduleList(response.data.data);
+      setFilteredScheduleList(response.data.data);
     } catch (error) {
-      showSnackbar("Lỗi khi tải danh sách tài khoản.", error);
+      showSnackbar("Lỗi khi tải danh sách lịch làm việc.", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchAccounts();
+    fetchSuggestions();
+    fetchSchedules();
   }, []);
+
+  const fetchSuggestions = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.get(
+        "http://localhost:5038/api/Lichlamviecbacsi/getFilteredSchedules",
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      const uniqueDoctors = [
+        ...new Set(response.data.data.map((item) => item.tenBacsi)),
+      ];
+      const uniqueRooms = [
+        ...new Set(response.data.data.map((item) => item.tenphong)),
+      ];
+
+      setSuggestions({
+        doctors: uniqueDoctors,
+        rooms: uniqueRooms,
+      });
+    } catch (error) {
+      showSnackbar("Lỗi khi tải dữ liệu gợi ý", "error");
+    }
+  };
 
   const showSnackbar = (message, severity = "success") => {
     setSnackbarMessage(message);
@@ -68,15 +161,36 @@ const Doctorschedule = () => {
     setOpenSnackbar(false);
   };
 
-  const handleRegister = async () => {
-    // Kiểm tra các điều kiện bắt buộc
-    if (!account.tennguoidung) {
-      showSnackbar("Vui lòng nhập tên người dùng.", "error");
+  const checkDuplicateSchedule = () => {
+    return scheduleList.some(
+      (sch) =>
+        sch.thongtinBacsi.tenBacsi === schedule.thongtinBacsi.tenBacsi &&
+        sch.calam === schedule.calam &&
+        sch.tenphong === schedule.tenphong &&
+        new Date(sch.ngaybatdau).toDateString() ===
+          new Date(schedule.ngaybatdau).toDateString() &&
+        sch.id !== schedule.id
+    );
+  };
+
+  const handleSubmit = async () => {
+    if (
+      !schedule.thongtinBacsi.tenBacsi ||
+      !schedule.tenphong ||
+      !schedule.calam ||
+      !selectedWeek
+    ) {
+      showSnackbar("Vui lòng điền đầy đủ thông tin.", "error");
       return;
     }
 
-    const token = localStorage.getItem("token");
+    if (checkDuplicateSchedule()) {
+      showSnackbar("Lịch làm việc này đã tồn tại!", "error");
+      return;
+    }
 
+    setIsSubmitting(true);
+    const token = localStorage.getItem("token");
     try {
       const config = {
         headers: {
@@ -86,72 +200,76 @@ const Doctorschedule = () => {
       };
 
       if (isEditing) {
-        // Chỉnh sửa tài khoản
         await axios.put(
-          `http://localhost:5038/api/Taikhoan/Edit/${account.id}`,
-          account,
+          `http://localhost:5038/api/Lichlamviecbacsi/update/${schedule.id}`,
+          schedule,
           config
         );
       } else {
-        // Đăng ký tài khoản mới
         await axios.post(
-          "http://localhost:5038/api/Taikhoan/register",
-          account,
+          "http://localhost:5038/api/Lichlamviecbacsi/create",
+          schedule,
           config
         );
       }
 
-      fetchAccounts(); // Làm mới danh sách tài khoản
-      resetForm(); // Đặt lại form
-      setIsEditing(false); // Thoát chế độ chỉnh sửa
-      showSnackbar(isEditing ? "Cập nhật thành công" : "Đăng ký thành công");
-    } catch (error) {
-      console.error("Lỗi đăng ký:", error.response?.data || error.message);
+      await fetchSchedules();
+      resetForm();
       showSnackbar(
-        error.response?.data?.message || "Đã xảy ra lỗi khi đăng ký tài khoản",
-        "error"
+        isEditing ? "Cập nhật thành công" : "Thêm lịch làm việc thành công"
       );
+    } catch (error) {
+      showSnackbar(error.response?.data?.message || "Đã xảy ra lỗi", "error");
+    } finally {
+      setIsSubmitting(false);
     }
   };
-  // Delete an account
+
   const handleDelete = async (id) => {
     try {
       const token = localStorage.getItem("token");
-      await axios.delete(`http://localhost:5038/api/Taikhoan/Delete/${id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      fetchAccounts(); // Làm mới danh sách tài khoản
-    } catch (error) {
-      showSnackbar(
-        error.response?.data?.message || "Lỗi khi xóa tài khoản",
-        "error"
+      await axios.delete(
+        `http://localhost:5038/api/Lichlamviecbacsi/delete/${id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
+      fetchSchedules();
+      showSnackbar("Xóa lịch làm việc thành công");
+    } catch (error) {
+      showSnackbar("Lỗi khi xóa lịch làm việc", error);
     }
   };
-  const handleEdit = (acc) => {
-    // Điền thông tin tài khoản vào form để chỉnh sửa
-    setAccount({
-      id: acc.id,
-      tentaiKhoan: acc.tentaiKhoan,
-      matkhau: "", // Để trống mật khẩu để người dùng nhập lại nếu muốn
-      tennguoidung: acc.tennguoidung,
-      sodienthoai: acc.sodienthoai,
-      vaitro: acc.vaitro,
+
+  const handleEdit = (sch) => {
+    const startDate = new Date(sch.ngaybatdau);
+    setSelectedWeek(formatDate(startDate));
+    setSchedule({
+      id: sch.id,
+      ngaybatdau: sch.ngaybatdau.split("T")[0],
+      ngayketthuc: sch.ngayketthuc.split("T")[0],
+      tenphong: sch.tenphong,
+      calam: sch.calam,
+      thongtinBacsi: sch.thongtinBacsi,
     });
     setIsEditing(true);
   };
 
   const resetForm = () => {
-    setAccount({
+    setSchedule({
       id: 0,
-      tentaiKhoan: "",
-      matkhau: "",
-      tennguoidung: "",
-      sodienthoai: "",
-      vaitro: "",
+      ngaybatdau: "",
+      ngayketthuc: "",
+      tenphong: "",
+      calam: "",
+      thongtinBacsi: {
+        id: 0,
+        tenBacsi: "",
+      },
     });
+    setSelectedWeek("");
     setIsEditing(false);
   };
   return (
@@ -182,11 +300,10 @@ const Doctorschedule = () => {
           boxShadow: 1,
         }}
       >
-        Quản lý tài khoản
+        Quản lý lịch làm việc bác sĩ
       </Typography>
 
       <Grid container spacing={1}>
-        {/* Form Nhập Liệu */}
         <Grid
           item
           xs={6}
@@ -212,63 +329,89 @@ const Doctorschedule = () => {
               boxShadow: "0 4px 12px rgba(0, 0, 0, 0.2)",
             }}
           >
-            <TextField
+            <Autocomplete
               fullWidth
-              label="Tên người dùng"
-              variant="outlined"
-              margin="normal"
-              value={account.tennguoidung}
-              onChange={(e) =>
-                setAccount({ ...account, tennguoidung: e.target.value })
-              }
+              options={suggestions.doctors}
+              value={schedule.thongtinBacsi.tenBacsi}
+              onChange={(event, newValue) => {
+                setSchedule({
+                  ...schedule,
+                  thongtinBacsi: {
+                    ...schedule.thongtinBacsi,
+                    tenBacsi: newValue || "",
+                  },
+                });
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Tên bác sĩ"
+                  variant="outlined"
+                  margin="normal"
+                />
+              )}
+              freeSolo
+            />
+
+            <Autocomplete
+              fullWidth
+              options={suggestions.rooms}
+              value={schedule.tenphong}
+              onChange={(event, newValue) => {
+                setSchedule({
+                  ...schedule,
+                  tenphong: newValue || "",
+                });
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Tên phòng"
+                  variant="outlined"
+                  margin="normal"
+                />
+              )}
+              freeSolo
             />
             <TextField
               fullWidth
-              label="Số điện thoại"
+              type="date"
+              label="Chọn tuần"
               variant="outlined"
               margin="normal"
-              value={account.sodienthoai}
-              onChange={(e) =>
-                setAccount({ ...account, sodienthoai: e.target.value })
-              }
-            />
-            <TextField
-              fullWidth
-              label="Tên tài khoản"
-              variant="outlined"
-              margin="normal"
-              value={account.tentaiKhoan}
-              onChange={(e) =>
-                setAccount({ ...account, tentaiKhoan: e.target.value })
-              }
-            />
-            <TextField
-              fullWidth
-              label="Mật khẩu"
-              variant="outlined"
-              margin="normal"
-              type="password"
-              value={account.matkhauatKhau}
-              onChange={(e) =>
-                setAccount({ ...account, matKhau: e.target.value })
-              }
+              InputLabelProps={{ shrink: true }}
+              value={selectedWeek}
+              onChange={handleWeekChange}
+              helperText="Chọn bất kỳ ngày nào trong tuần"
             />
             <FormControl fullWidth margin="normal">
-              <InputLabel>Vai trò</InputLabel>
+              <InputLabel>Ca làm</InputLabel>
               <Select
-                value={account.vaitro}
+                value={schedule.calam}
                 onChange={(e) =>
-                  setAccount({ ...account, vaitro: e.target.value })
+                  setSchedule({ ...schedule, calam: e.target.value })
                 }
               >
-                <MenuItem value="Admin">Admin</MenuItem>
-                <MenuItem value="Bác sĩ">Bác sĩ</MenuItem>
+                <MenuItem value="Ca 0">Ca 0</MenuItem>
+                <MenuItem value="Ca 1">Ca 1</MenuItem>
+                <MenuItem value="Ca 2">Ca 2</MenuItem>
+                <MenuItem value="Ca 3">Ca 3</MenuItem>
+                <MenuItem value="Ca 4">Ca 4</MenuItem>
               </Select>
             </FormControl>
+            <TextField
+              fullWidth
+              type="date"
+              label="Chọn tuần để xem lịch"
+              variant="outlined"
+              InputLabelProps={{ shrink: true }}
+              value={filterWeek}
+              onChange={handleFilterWeekChange}
+              sx={{ bgcolor: "white" }}
+            />
             <Box sx={{ textAlign: "center", marginTop: 2 }}>
               <Button
                 variant="outlined"
-                color=""
                 sx={{
                   borderWidth: "2px",
                   backgroundColor: "blue",
@@ -279,13 +422,13 @@ const Doctorschedule = () => {
                     color: "blue",
                   },
                 }}
-                onClick={handleRegister}
+                onClick={handleSubmit}
+                disabled={isSubmitting}
               >
                 {isEditing ? "Cập nhật" : "Lưu"}
               </Button>
               <Button
                 variant="outlined"
-                color=""
                 sx={{
                   transitionDuration: "100",
                   borderWidth: "2px",
@@ -304,7 +447,6 @@ const Doctorschedule = () => {
           </Box>
         </Grid>
 
-        {/* Bảng Danh Sách Tài Khoản */}
         <Grid
           item
           xs={6}
@@ -325,151 +467,176 @@ const Doctorschedule = () => {
             component={Paper}
             sx={{ height: "470px", overflowY: "auto" }}
           >
-            <Table>
-              <TableHead sx={{ bgcolor: "#ADFF2F" }}>
-                <TableRow>
-                  <TableCell
-                    sx={{
-                      border: "2px solid  #E1EBEE",
-                      textAlign: "center",
-                      fontWeight: "bold",
-                      p: "2px",
-                    }}
-                  >
-                    Tên người dùng
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      border: "2px solid  #E1EBEE",
-                      textAlign: "center",
-                      fontWeight: "bold",
-                      p: "2px",
-                    }}
-                  >
-                    Số điện thoại
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      border: "2px solid  #E1EBEE",
-                      textAlign: "center",
-                      fontWeight: "bold",
-                      p: "2px",
-                    }}
-                  >
-                    Tên tài khoản
-                  </TableCell>
-                  {/* <TableCell>Mật khẩu</TableCell> */}
-                  <TableCell
-                    sx={{
-                      border: "2px solid  #E1EBEE",
-                      textAlign: "center",
-                      fontWeight: "bold",
-                      p: "2px",
-                    }}
-                  >
-                    Vai trò
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      border: "2px solid  #E1EBEE",
-                      textAlign: "center",
-                      fontWeight: "bold",
-                      p: "2px",
-                    }}
-                  >
-                    Hành động
-                  </TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {accountList.map((acc) => (
-                  <TableRow key={acc.id}>
+            {isLoading ? (
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  height: "100%",
+                }}
+              >
+                <CircularProgress />
+              </Box>
+            ) : (
+              <Table>
+                <TableHead sx={{ bgcolor: "#ADFF2F" }}>
+                  <TableRow>
                     <TableCell
                       sx={{
-                        border: "2px solid  #E1EBEE",
+                        border: "2px solid #E1EBEE",
                         textAlign: "center",
-
+                        fontWeight: "bold",
                         p: "2px",
                       }}
                     >
-                      {acc.tennguoidung}
+                      Tên bác sĩ
                     </TableCell>
                     <TableCell
                       sx={{
-                        border: "2px solid  #E1EBEE",
+                        border: "2px solid #E1EBEE",
                         textAlign: "center",
-
+                        fontWeight: "bold",
                         p: "2px",
                       }}
                     >
-                      {acc.sodienthoai}
+                      Tên phòng
                     </TableCell>
                     <TableCell
                       sx={{
-                        border: "2px solid  #E1EBEE",
+                        border: "2px solid #E1EBEE",
                         textAlign: "center",
-
+                        fontWeight: "bold",
                         p: "2px",
                       }}
                     >
-                      {acc.tentaiKhoan}
-                    </TableCell>
-                    {/* <TableCell>{acc.matkhau}</TableCell> */}
-                    <TableCell
-                      sx={{
-                        border: "2px solid  #E1EBEE",
-                        textAlign: "center",
-                        p: "2px",
-                      }}
-                    >
-                      {acc.vaitro}
+                      Ngày bắt đầu
                     </TableCell>
                     <TableCell
                       sx={{
-                        border: "2px solid  #E1EBEE",
+                        border: "2px solid #E1EBEE",
                         textAlign: "center",
+                        fontWeight: "bold",
                         p: "2px",
                       }}
                     >
-                      <Button
-                        variant="outlined"
-                        color=""
-                        sx={{
-                          borderWidth: "2px",
-                          backgroundColor: "blue",
-                          marginRight: 2,
-                          color: "white",
-                          "&:hover": {
-                            backgroundColor: "white",
-                            color: "blue",
-                          },
-                        }}
-                        onClick={() => handleEdit(acc)}
-                      >
-                        Sửa
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        color=""
-                        sx={{
-                          transitionDuration: "100",
-                          borderWidth: "2px",
-                          backgroundColor: "red",
-                          color: "white",
-                          "&:hover": {
-                            backgroundColor: "white",
-                            color: "red",
-                          },
-                        }}
-                        onClick={() => handleDelete(acc.id)}
-                      >
-                        Xóa
-                      </Button>
+                      Ngày kết thúc
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        border: "2px solid #E1EBEE",
+                        textAlign: "center",
+                        fontWeight: "bold",
+                        p: "2px",
+                      }}
+                    >
+                      Ca làm
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        border: "2px solid #E1EBEE",
+                        textAlign: "center",
+                        fontWeight: "bold",
+                        p: "2px",
+                      }}
+                    >
+                      Hành động
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHead>
+                <TableBody>
+                  {filteredScheduleList.map((sch) => (
+                    <TableRow key={sch.id}>
+                      <TableCell
+                        sx={{
+                          border: "2px solid #E1EBEE",
+                          textAlign: "center",
+                          p: "2px",
+                        }}
+                      >
+                        {sch.thongtinBacsi.tenBacsi}
+                      </TableCell>
+                      <TableCell
+                        sx={{
+                          border: "2px solid #E1EBEE",
+                          textAlign: "center",
+                          p: "2px",
+                        }}
+                      >
+                        {sch.tenphong}
+                      </TableCell>
+                      <TableCell
+                        sx={{
+                          border: "2px solid #E1EBEE",
+                          textAlign: "center",
+                          p: "2px",
+                        }}
+                      >
+                        {new Date(sch.ngaybatdau).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell
+                        sx={{
+                          border: "2px solid #E1EBEE",
+                          textAlign: "center",
+                          p: "2px",
+                        }}
+                      >
+                        {new Date(sch.ngayketthuc).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell
+                        sx={{
+                          border: "2px solid #E1EBEE",
+                          textAlign: "center",
+                          p: "2px",
+                        }}
+                      >
+                        {sch.calam}
+                      </TableCell>
+                      <TableCell
+                        sx={{
+                          border: "2px solid #E1EBEE",
+                          textAlign: "center",
+                          p: "2px",
+                        }}
+                      >
+                        <Button
+                          variant="outlined"
+                          sx={{
+                            borderWidth: "2px",
+                            backgroundColor: "blue",
+                            marginRight: 2,
+                            color: "white",
+                            "&:hover": {
+                              backgroundColor: "white",
+                              color: "blue",
+                            },
+                          }}
+                          onClick={() => handleEdit(sch)}
+                        >
+                          Sửa
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          sx={{
+                            transitionDuration: "100",
+                            borderWidth: "2px",
+                            backgroundColor: "red",
+                            color: "white",
+                            "&:hover": {
+                              backgroundColor: "white",
+                              color: "red",
+                            },
+                          }}
+                          onClick={() => handleDelete(sch.id)}
+                        >
+                          Xóa
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </TableContainer>
         </Grid>
       </Grid>
@@ -491,4 +658,4 @@ const Doctorschedule = () => {
   );
 };
 
-export default Doctorschedule;
+export default DoctorSchedule;

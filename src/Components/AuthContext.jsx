@@ -17,19 +17,25 @@ export const AuthProvider = ({ children }) => {
     if (token) {
       try {
         const payload = JSON.parse(atob(token.split(".")[1]));
-        setAuth({
-          token,
-          user: {
-            id: payload.jti,
-            username: payload.sub,
-            role: payload.role,
-            name: payload.name,
-          },
-        });
+        const currentTime = Math.floor(Date.now() / 1000);
+        if (payload.exp < currentTime) {
+          // Token hết hạn
+          console.warn("Token đã hết hạn.");
+          logout();
+        } else {
+          setAuth({
+            token,
+            user: {
+              id: payload.jti,
+              username: payload.sub,
+              role: payload.role,
+              name: payload.name,
+            },
+          });
+        }
       } catch (error) {
         console.error("Token không hợp lệ:", error);
-        localStorage.removeItem("token");
-        setAuth({ token: null, user: null });
+        logout();
       }
     }
   }, []);
@@ -50,7 +56,9 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("userName");
     setAuth({ token: null, user: null });
+    alert("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
     navigate("/Login");
   };
 

@@ -46,9 +46,11 @@ const LoginForm = () => {
       const { token, Message, userName } = response.data;
       console.log("response", response.data);
       login(token);
+
       // Lưu token vào localStorage
       localStorage.setItem("token", token);
       localStorage.setItem("userName", userName);
+
       // Hiển thị thông báo thành công
       setSuccess(Message || "Đăng nhập thành công.");
       setTimeout(() => {
@@ -56,9 +58,17 @@ const LoginForm = () => {
         navigate("/"); // Điều hướng đến trang chính
       }, 1000);
     } catch (error) {
+      // Kiểm tra lỗi từ phía server (ví dụ, token hết hạn)
       if (error.response) {
         const errorData = error.response.data;
-        if (errorData.errors) {
+        if (error.response.status === 401) {
+          // Token hết hạn hoặc không hợp lệ, xóa token và yêu cầu đăng nhập lại
+          localStorage.removeItem("token");
+          localStorage.removeItem("userName");
+          setError("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+          setLoading(false);
+          navigate("/Login"); // Chuyển hướng về trang đăng nhập
+        } else if (errorData.errors) {
           const firstError = Object.values(errorData.errors)[0][0];
           setError(firstError || "Đã xảy ra lỗi.");
         } else if (errorData.title) {

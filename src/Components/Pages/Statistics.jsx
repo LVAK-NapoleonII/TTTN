@@ -15,6 +15,7 @@ import {
   Select,
   FormControl,
   InputLabel,
+  Stack,
 } from "@mui/material";
 import {
   BarChart,
@@ -55,7 +56,15 @@ const AppointmentStatistics = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
+  const years = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return Array.from(
+      { length: currentYear - 2019 },
+      (_, index) => currentYear - index
+    );
+  }, []);
   useEffect(() => {
     fetchAppointments();
   }, []);
@@ -101,42 +110,48 @@ const AppointmentStatistics = () => {
   };
 
   const filteredAppointments = useMemo(() => {
-    return appointments.filter(
-      (appointment) => appointment.ngayTaoLich.getMonth() + 1 === selectedMonth
-    );
-  }, [appointments, selectedMonth]);
+    return appointments.filter((appointment) => {
+      const appointmentDate = appointment.ngayTaoLich;
+      return (
+        appointmentDate.getMonth() + 1 === selectedMonth &&
+        appointmentDate.getFullYear() === selectedYear
+      );
+    });
+  }, [appointments, selectedMonth, selectedYear]);
 
   const dailyStats = useMemo(() => {
     if (!appointments.length) return [];
 
-    const filteredAppointments = appointments.filter(
-      (appointment) => appointment.ngayTaoLich.getMonth() + 1 === selectedMonth
-    );
+    const filteredAppointments = appointments.filter((appointment) => {
+      const appointmentDate = appointment.ngayTaoLich;
+      return (
+        appointmentDate.getMonth() + 1 === selectedMonth &&
+        appointmentDate.getFullYear() === selectedYear
+      );
+    });
 
     if (!filteredAppointments.length) return [];
 
-    const currentDate = new Date();
-    const daysInMonth = new Date(
-      currentDate.getFullYear(),
-      selectedMonth,
-      0
-    ).getDate();
+    const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
 
     const countsByCreationDate = filteredAppointments.reduce(
       (acc, appointment) => {
-        const date = new Date(appointment.ngayTaoLich).getDate();
+        const date = appointment.ngayTaoLich.getDate();
         acc[date] = (acc[date] || 0) + 1;
         return acc;
       },
       {}
     );
-    const countsByAppointmentDate = appointments.reduce((acc, appointment) => {
-      const date = new Date(appointment.ngayKhamBenh).getDate();
-      acc[date] = (acc[date] || 0) + 1;
-      return acc;
-    }, {});
 
-    // Tạo danh sách đầy đủ các ngày trong tháng, bao gồm cả những ngày không có lịch khám
+    const countsByAppointmentDate = filteredAppointments.reduce(
+      (acc, appointment) => {
+        const date = appointment.ngayKhamBenh.getDate();
+        acc[date] = (acc[date] || 0) + 1;
+        return acc;
+      },
+      {}
+    );
+
     return Array.from({ length: daysInMonth }, (_, index) => {
       const date = index + 1;
       return {
@@ -145,7 +160,7 @@ const AppointmentStatistics = () => {
         creationCount: countsByCreationDate[date] || 0,
       };
     });
-  }, [appointments, selectedMonth]);
+  }, [appointments, selectedMonth, selectedYear]);
 
   const statusStats = useMemo(() => {
     const statusCounts = appointments.reduce((acc, appointment) => {
@@ -186,7 +201,9 @@ const AppointmentStatistics = () => {
   const handleMonthChange = (event) => {
     setSelectedMonth(event.target.value);
   };
-
+  const handleYearChange = (event) => {
+    setSelectedYear(event.target.value);
+  };
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
@@ -229,25 +246,42 @@ const AppointmentStatistics = () => {
   return (
     <Box sx={{ p: 3 }}>
       <Box mb={3}>
-        <FormControl variant="outlined" sx={{ minWidth: 200 }}>
-          <InputLabel id="month-select-label">Chọn tháng</InputLabel>
-          <Select
-            labelId="month-select-label"
-            value={selectedMonth}
-            onChange={handleMonthChange}
-            label="Chọn tháng"
-          >
-            {Array.from({ length: 12 }, (_, index) => (
-              <MenuItem key={index + 1} value={index + 1}>
-                Tháng {index + 1}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <Stack direction="row" spacing={2} mb={3}>
+          <FormControl variant="outlined" sx={{ minWidth: 200 }}>
+            <InputLabel id="year-select-label">Chọn năm</InputLabel>
+            <Select
+              labelId="year-select-label"
+              value={selectedYear}
+              onChange={handleYearChange}
+              label="Chọn năm"
+            >
+              {years.map((year) => (
+                <MenuItem key={year} value={year}>
+                  Năm {year}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl variant="outlined" sx={{ minWidth: 200 }}>
+            <InputLabel id="month-select-label">Chọn tháng</InputLabel>
+            <Select
+              labelId="month-select-label"
+              value={selectedMonth}
+              onChange={handleMonthChange}
+              label="Chọn tháng"
+            >
+              {Array.from({ length: 12 }, (_, index) => (
+                <MenuItem key={index + 1} value={index + 1}>
+                  Tháng {index + 1}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Stack>
       </Box>
       {dailyStats.length === 0 ? (
         <Typography variant="h6" color="textSecondary">
-          Không có dữ liệu cho tháng này.
+          Không có dữ liệu cho tháng {selectedMonth} năm {selectedYear}.
         </Typography>
       ) : (
         <Grid container spacing={3}>

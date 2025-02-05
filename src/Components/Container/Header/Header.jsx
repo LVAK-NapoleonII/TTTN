@@ -21,6 +21,7 @@ import ExitToAppIcon from "@mui/icons-material/ExitToApp";
 import AppRegistrationIcon from "@mui/icons-material/AppRegistration";
 import ContactPhoneIcon from "@mui/icons-material/ContactPhone";
 import { useAuth } from "../../AuthContext.jsx";
+import AssignmentIndIcon from "@mui/icons-material/AssignmentInd";
 
 // Styled components for better customization
 const Logo = styled("img")({
@@ -130,13 +131,15 @@ const Header = () => {
             </MenuButton>
             <MenuButton component={Link} to="/Exportexcel">
               <ExitToAppIcon sx={{ marginRight: "5px" }} /> Xuất file excel
-            </MenuButton>
-            <MenuButton component={Link} to="/Statistics">
-              <AssessmentIcon sx={{ marginRight: "5px" }} />
-              Thống kê
-            </MenuButton>
+            </MenuButton>{" "}
+            {auth?.user?.role === "Admin" && (
+              <MenuButton component={Link} to="/Statistics">
+                <AssessmentIcon sx={{ marginRight: "5px" }} />
+                Thống kê
+              </MenuButton>
+            )}
             <MenuButton component={Link} to="/Doctorschedule">
-              <AssessmentIcon sx={{ marginRight: "5px" }} />
+              <AssignmentIndIcon sx={{ marginRight: "5px" }} />
               Lịch làm việc bác sĩ
             </MenuButton>
           </Box>
@@ -163,7 +166,10 @@ const Header = () => {
                     backgroundImage:
                       "linear-gradient(to right, #E9F7DD, #DDFBC4,#C7F2A4)",
                   },
+                  textDecoration: "none",
                 }}
+                component={Link}
+                to="/SMSNotification"
               >
                 <ContactPhoneIcon /> Liên hệ
               </Typography>
@@ -228,18 +234,22 @@ const Header = () => {
                   Quản lý tài khoản
                 </MenuItem>
               )}
-              <MenuItem onClick={handleClose} component={Link} to="/Login">
-                <ListItemIcon>
-                  <Settings fontSize="small" />
-                </ListItemIcon>
-                Đăng nhập
-              </MenuItem>
-              <MenuItem onClick={handleLogout}>
-                <ListItemIcon>
-                  <Logout fontSize="small" />
-                </ListItemIcon>
-                Đăng xuất
-              </MenuItem>
+              {!auth?.user && (
+                <MenuItem onClick={handleClose} component={Link} to="/Login">
+                  <ListItemIcon>
+                    <Settings fontSize="small" />
+                  </ListItemIcon>
+                  Đăng nhập
+                </MenuItem>
+              )}{" "}
+              {auth?.user && (
+                <MenuItem onClick={handleLogout}>
+                  <ListItemIcon>
+                    <Logout fontSize="small" />
+                  </ListItemIcon>
+                  Đăng xuất
+                </MenuItem>
+              )}
             </Menu>
           </Box>
         </Toolbar>

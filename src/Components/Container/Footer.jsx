@@ -38,17 +38,21 @@ function Footer() {
               <Typography variant="h6" color="#14AF55" gutterBottom>
                 Liên kết nhanh
               </Typography>
-              <Link href="#" color="inherit" variant="body2" display="block">
+              <Link
+                href="/AppointmentBooking"
+                color="inherit"
+                variant="body2"
+                display="block"
+              >
                 Đăng ký khám bệnh
               </Link>
-              <Link href="#" color="inherit" variant="body2" display="block">
-                Xem kết quả xét nghiệm
-              </Link>
-              <Link href="#" color="inherit" variant="body2" display="block">
+              <Link
+                href="/Doctorschedule"
+                color="inherit"
+                variant="body2"
+                display="block"
+              >
                 Lịch khám bác sĩ
-              </Link>
-              <Link href="#" color="inherit" variant="body2" display="block">
-                Tư vấn trực tuyến
               </Link>
             </Grid>
 

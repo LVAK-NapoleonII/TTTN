@@ -29,6 +29,7 @@ import { TimeField } from "@mui/x-date-pickers/TimeField";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import enGB from "date-fns/locale/en-GB";
 import axios from "axios";
+import { differenceInYears } from "date-fns";
 
 const AppointmentBooking = () => {
   const [formData, setFormData] = useState({
@@ -73,11 +74,32 @@ const AppointmentBooking = () => {
   const [selectedDoctor, setSelectedDoctor] = useState("");
   const [errors, setErrors] = useState("");
   const [patientType, setPatientType] = useState("");
+  const [creationDateFilter, setCreationDateFilter] = useState(new Date());
   const [notification, setNotification] = useState({
     open: false,
     message: "",
     severity: "success",
   });
+  // Hàm so sánh ngày (chỉ so sánh ngày/tháng/năm, không quan tâm giờ)
+  const isSameDay = (date1, date2) => {
+    if (!date1 || !date2) return false;
+    const d1 = new Date(date1);
+    const d2 = new Date(date2);
+    return (
+      d1.getFullYear() === d2.getFullYear() &&
+      d1.getMonth() === d2.getMonth() &&
+      d1.getDate() === d2.getDate()
+    );
+  };
+  // Hàm xử lý thay đổi ngày
+  const handleCreationDateChange = (newValue) => {
+    setCreationDateFilter(newValue);
+  };
+  // Thêm nút reset để quay lại ngày hiện tại
+  const resetToCurrentDate = () => {
+    setCreationDateFilter(new Date());
+  };
+
   const handleCloseNotification = () => {
     setNotification((prev) => ({
       ...prev,
@@ -92,9 +114,11 @@ const AppointmentBooking = () => {
     });
   };
   useEffect(() => {
-    fetchDoctorSchedules();
+    if (selectedDate) {
+      fetchDoctorSchedules();
+    }
     fetchAppointments();
-  }, []);
+  }, [selectedDate]);
 
   const fetchDoctorSchedules = async (
     currentShift = shift,
@@ -109,6 +133,7 @@ const AppointmentBooking = () => {
             roomName: currentRoom,
             doctorName: currentDoctor,
             shiftName: currentShift,
+            ngayLam: selectedDate?.toISOString().split("T")[0],
           },
         }
       );
@@ -120,10 +145,29 @@ const AppointmentBooking = () => {
         setRooms(rooms);
         setShifts(shifts);
         setDoctors(doctors);
+        if (currentRoom && !rooms.includes(currentRoom)) {
+          setSelectedRoom("");
+          showNotification(
+            "Phòng đã chọn không khả dụng trong ca này",
+            "warning"
+          );
+        }
+        if (currentShift && !shifts.includes(currentShift)) {
+          setShift("");
+          showNotification("Ca làm việc đã chọn không khả dụng", "warning");
+        }
+        if (currentDoctor && !doctors.includes(currentDoctor)) {
+          setSelectedDoctor("");
+          showNotification(
+            "Bác sĩ đã chọn không làm việc trong ca này",
+            "warning"
+          );
+        }
       }
     } catch (error) {
       console.error("Error fetching doctor schedules:", error);
-      setErrors(error.message || "An error occurred");
+      setErrors(error.message || "Không thể tải lịch làm việc của bác sĩ");
+      showNotification("Không thể tải lịch làm việc của bác sĩ", "error");
     }
   };
   const token = localStorage.getItem("token");
@@ -160,13 +204,24 @@ const AppointmentBooking = () => {
     const today = new Date();
     if (newValue > today) {
       setDobError("Ngày sinh không được lớn hơn thời điểm hiện tại");
-    } else {
-      setDobError("");
+      return;
+    }
+    const age = differenceInYears(today, newValue);
+
+    if (age > 16) {
+      setDobError("Bệnh nhân phải dưới 16 tuổi");
       setFormData((prev) => ({
         ...prev,
-        ngaythangnamsinh: newValue,
+        ngaythangnamsinh: prev.ngaythangnamsinh,
       }));
+      return;
     }
+
+    setDobError("");
+    setFormData((prev) => ({
+      ...prev,
+      ngaythangnamsinh: newValue,
+    }));
   };
 
   const handleSelectAppointmentForEdit = (appointment) => {
@@ -204,7 +259,7 @@ const AppointmentBooking = () => {
 
   const handlePhoneNumberChange = (e, fieldName) => {
     const value = e.target.value;
-    const phoneRegex = /^[0-9]*$/; // Chỉ cho phép số
+    const phoneRegex = /^[0-9]*$/;
 
     let phoneError = "";
     if (!phoneRegex.test(value)) {
@@ -213,57 +268,146 @@ const AppointmentBooking = () => {
       phoneError = "Số điện thoại không được quá 12 ký tự";
     }
 
-    // Cập nhật state cho formData
     setFormData((prev) => ({
       ...prev,
       [fieldName]: value,
     }));
 
-    // Cập nhật state cho errors
     setErrors((prev) => ({
       ...prev,
       [fieldName]: phoneError,
     }));
   };
 
-  const handleTimeChange = (newValue) => {
-    const today = new Date();
-    const selectedDay = new Date(selectedDate);
-    selectedDay.setHours(newValue.getHours(), newValue.getMinutes(), 0, 0);
-    const currentTime = new Date();
-    currentTime.setSeconds(0, 0);
+  const timeStringToDate = (timeStr) => {
+    if (!timeStr) return null;
+    const [hours, minutes] = timeStr.split(":").map(Number);
+    const date = new Date();
+    date.setHours(hours, minutes, 0, 0);
+    return date;
+  };
+  const getShiftFromTime = (time) => {
+    const hours = time.getHours();
+    const minutes = time.getMinutes();
 
-    if (
-      selectedDate.toDateString() === today.toDateString() &&
-      selectedDay.getTime() < currentTime.getTime()
-    ) {
-      setTimeError("Giờ khám không được nhỏ hơn giờ hiện tại");
-    } else {
+    if ((hours === 5 && minutes >= 30) || (hours >= 6 && hours < 7))
+      return "Ca 0";
+    if (hours >= 7 && hours < 11) return "Ca 1";
+    if (hours >= 11 && hours < 13) return "Ca 2";
+    if (hours >= 13 && hours < 16) return "Ca 3";
+    if ((hours >= 16 && hours < 19) || (hours === 19 && minutes <= 30))
+      return "Ca 4";
+    return "";
+  };
+  const isTimeWithinShift = (time, shiftName) => {
+    const hours = time.getHours();
+    const minutes = time.getMinutes();
+
+    const shiftRanges = {
+      "Ca 0": { start: { h: 5, m: 30 }, end: { h: 7, m: 0 } },
+      "Ca 1": { start: { h: 7, m: 0 }, end: { h: 11, m: 0 } },
+      "Ca 2": { start: { h: 11, m: 0 }, end: { h: 13, m: 0 } },
+      "Ca 3": { start: { h: 13, m: 0 }, end: { h: 16, m: 0 } },
+      "Ca 4": { start: { h: 16, m: 0 }, end: { h: 19, m: 30 } },
+    };
+
+    const range = shiftRanges[shiftName];
+    if (!range) return false;
+
+    const timeInMinutes = hours * 60 + minutes;
+    const startInMinutes = range.start.h * 60 + range.start.m;
+    const endInMinutes = range.end.h * 60 + range.end.m;
+
+    return timeInMinutes >= startInMinutes && timeInMinutes <= endInMinutes;
+  };
+
+  const handleTimeChange = async (newValue) => {
+    try {
+      const hours = newValue.getHours();
+      const minutes = newValue.getMinutes();
+      const timeInMinutes = hours * 60 + minutes;
+
+      if (timeInMinutes < 5 * 60 + 30 || timeInMinutes > 19 * 60 + 30) {
+        setTimeError("Thời gian đặt lịch phải từ 5:30 đến 19:30");
+        showNotification("Thời gian đặt lịch phải từ 5:30 đến 19:30", "error");
+        return;
+      }
+
+      const newShift = getShiftFromTime(newValue);
+      if (!newShift) {
+        setTimeError("Thời gian không thuộc ca làm việc nào");
+        showNotification("Thời gian không thuộc ca làm việc nào", "error");
+        return;
+      }
+
+      const today = new Date();
+      const selectedDay = new Date(selectedDate);
+      const currentTime = new Date();
+
+      if (isSameDay(selectedDay, today) && newValue < currentTime) {
+        setTimeError("Giờ khám không được nhỏ hơn giờ hiện tại");
+        showNotification("Giờ khám không được nhỏ hơn giờ hiện tại", "error");
+        return;
+      }
+
+      const response = await axios.get(
+        "http://localhost:5038/api/LichKhamBenh/getAll",
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      const appointmentsOnSameDay = response.data.filter(
+        (appointment) =>
+          appointment.phong === selectedRoom &&
+          isSameDay(new Date(appointment.ngayKhamBenh), selectedDate)
+      );
+
+      // Sort appointments by time
+      appointmentsOnSameDay.sort((a, b) => {
+        const timeA = timeStringToDate(a.gioKhamBenh);
+        const timeB = timeStringToDate(b.gioKhamBenh);
+        return timeA - timeB;
+      });
+
+      // Check 7-minute gap between appointments
+      for (const appointment of appointmentsOnSameDay) {
+        const existingTime = timeStringToDate(appointment.gioKhamBenh);
+        if (!existingTime) continue;
+
+        const newTimeMinutes = newValue.getHours() * 60 + newValue.getMinutes();
+        const existingTimeMinutes =
+          existingTime.getHours() * 60 + existingTime.getMinutes();
+        const timeDiff = Math.abs(newTimeMinutes - existingTimeMinutes);
+
+        console.log("Time check:", {
+          existing: appointment.gioKhamBenh,
+          new: newValue,
+          diff: timeDiff,
+        });
+
+        if (timeDiff < 7) {
+          const errorMessage =
+            "Thời gian đặt lịch phải cách các lịch khám khác ít nhất 7 phút";
+          setTimeError(errorMessage);
+          showNotification(errorMessage, "error");
+          return;
+        }
+      }
+
       setTimeError("");
       setSelectedTime(newValue);
       setFormData((prev) => ({
         ...prev,
         gioKhamBenh: newValue,
       }));
-
-      const hours = newValue.getHours();
-      const minutes = newValue.getMinutes();
-      if ((hours === 5 && minutes >= 30) || (hours >= 6 && hours < 7)) {
-        setShift("Ca 0");
-      } else if (hours >= 7 && hours < 11) {
-        setShift("Ca 1");
-      } else if (hours >= 11 && hours < 13) {
-        setShift("Ca 2");
-      } else if (hours >= 13 && hours < 16) {
-        setShift("Ca 3");
-      } else if (
-        (hours >= 16 && hours < 19) ||
-        (hours === 19 && minutes <= 30)
-      ) {
-        setShift("Ca 4");
-      } else {
-        setShift("");
-      }
+      setShift(newShift);
+      fetchDoctorSchedules(newShift, selectedRoom, selectedDoctor);
+    } catch (error) {
+      console.error("Error in handleTimeChange:", error);
+      const errorMessage = "Có lỗi xảy ra khi kiểm tra thời gian đặt lịch";
+      setTimeError(errorMessage);
+      showNotification(errorMessage, "error");
     }
   };
 
@@ -330,6 +474,11 @@ const AppointmentBooking = () => {
     // Kiểm tra ngày sinh
     if (!formData.ngaythangnamsinh) {
       newErrors.ngaythangnamsinh = "Vui lòng chọn ngày sinh";
+    } else {
+      const age = differenceInYears(new Date(), formData.ngaythangnamsinh);
+      if (age > 16) {
+        newErrors.ngaythangnamsinh = "Bệnh nhân phải dưới 16 tuổi";
+      }
     }
 
     // Kiểm tra loại bệnh nhân
@@ -358,6 +507,73 @@ const AppointmentBooking = () => {
     }
 
     try {
+      // Kiểm tra trùng lịch khám
+      const checkDuplicateResponse = await axios.get(
+        "http://localhost:5038/api/LichKhamBenh/getAll",
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      const existingAppointments = checkDuplicateResponse.data;
+
+      // Kiểm tra trùng số điện thoại trong cùng ngày
+      const duplicatePhone = existingAppointments.find(
+        (appointment) =>
+          appointment.sdtdangky === formData.sdtdangky &&
+          isSameDay(new Date(appointment.ngayKhamBenh), formData.ngayKhamBenh)
+      );
+
+      if (duplicatePhone) {
+        showNotification(
+          "Số điện thoại này đã được đặt lịch khám trong ngày. Vui lòng chọn ngày khác!",
+          "error"
+        );
+        return;
+      }
+
+      // Kiểm tra trùng tên trong cùng ngày
+      const duplicateName = existingAppointments.find(
+        (appointment) =>
+          appointment.hovaTenbenhnhan.toLowerCase() ===
+            formData.tenbenhnhan.toLowerCase() &&
+          isSameDay(new Date(appointment.ngayKhamBenh), formData.ngayKhamBenh)
+      );
+
+      if (duplicateName) {
+        showNotification(
+          "Bệnh nhân này đã có lịch khám trong ngày. Vui lòng chọn ngày khác!",
+          "error"
+        );
+        return;
+      }
+
+      // Kiểm tra thời gian giữa các lịch khám
+      const appointmentsOnSameDay = existingAppointments.filter(
+        (appointment) =>
+          appointment.phong === selectedRoom &&
+          isSameDay(new Date(appointment.ngayKhamBenh), formData.ngayKhamBenh)
+      );
+
+      const selectedTimeMinutes =
+        formData.gioKhamBenh.getHours() * 60 +
+        formData.gioKhamBenh.getMinutes();
+
+      for (const appointment of appointmentsOnSameDay) {
+        const [hours, minutes] = appointment.gioKhamBenh.split(":").map(Number);
+        const existingTimeMinutes = hours * 60 + minutes;
+
+        const timeDiff = Math.abs(selectedTimeMinutes - existingTimeMinutes);
+
+        if (timeDiff < 7) {
+          showNotification(
+            "Thời gian giữa các lịch khám phải cách nhau ít nhất 7 phút!",
+            "error"
+          );
+          return;
+        }
+      }
+
       // Tìm lịch làm việc bác sĩ phù hợp
       const matchingScheduleResponse = await axios.get(
         "http://localhost:5038/api/Lichlamviecbacsi/getFilteredSchedules",
@@ -381,7 +597,7 @@ const AppointmentBooking = () => {
 
       const matchingSchedule = matchingScheduleResponse.data.data[0];
 
-      // Chuẩn bị dữ liệu theo đúng cấu trúc API yêu cầu
+      // Chuẩn bị dữ liệu để gửi
       const submitData = {
         sdtdangky: formData.sdtdangky,
         sdtgoiden: formData.sdtgoiden || "",
@@ -410,6 +626,7 @@ const AppointmentBooking = () => {
             .split("T")[0],
         },
       };
+
       const response = await axios.post(
         "http://localhost:5038/api/LichKhamBenh/createBooking",
         submitData,
@@ -434,6 +651,7 @@ const AppointmentBooking = () => {
       showNotification(errorMessage, "error");
     }
   };
+
   // Delete appointment
   const handleDelete = async (id) => {
     try {
@@ -508,50 +726,82 @@ const AppointmentBooking = () => {
 
   const handleUpdateAppointment = async () => {
     try {
-      if (!validateForm()) {
-        return;
+      if (!validateForm()) return;
+
+      const checkDuplicateResponse = await axios.get(
+        "http://localhost:5038/api/LichKhamBenh/getAll",
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const existingAppointments = checkDuplicateResponse.data.filter(
+        (appointment) => appointment.id !== formData.id
+      );
+
+      // Time validation
+      const appointmentsOnSameDay = existingAppointments.filter(
+        (appointment) =>
+          appointment.phong === selectedRoom &&
+          isSameDay(new Date(appointment.ngayKhamBenh), formData.ngayKhamBenh)
+      );
+
+      // Convert selected time to minutes for comparison
+      let selectedTimeMinutes;
+      if (formData.gioKhamBenh instanceof Date) {
+        selectedTimeMinutes =
+          formData.gioKhamBenh.getHours() * 60 +
+          formData.gioKhamBenh.getMinutes();
+      } else {
+        const [hours, minutes] = formData.gioKhamBenh.split(":").map(Number);
+        selectedTimeMinutes = hours * 60 + minutes;
       }
 
-      // Ensure all dates are properly formatted
-      const formattedDate =
-        formData.ngayKhamBenh instanceof Date
-          ? formData.ngayKhamBenh.toISOString().split("T")[0]
-          : formData.ngayKhamBenh;
+      for (const appointment of appointmentsOnSameDay) {
+        const [hours, minutes] = appointment.gioKhamBenh.split(":").map(Number);
+        const existingTimeMinutes = hours * 60 + minutes;
 
-      const formattedDob =
-        formData.ngaythangnamsinh instanceof Date
-          ? formData.ngaythangnamsinh.toISOString().split("T")[0]
-          : formData.ngaythangnamsinh;
+        if (Math.abs(selectedTimeMinutes - existingTimeMinutes) < 7) {
+          showNotification(
+            "Thời gian giữa các lịch khám phải cách nhau ít nhất 7 phút!",
+            "error"
+          );
+          return;
+        }
+      }
 
-      const formattedTime =
-        formData.gioKhamBenh instanceof Date
-          ? formData.gioKhamBenh.toLocaleTimeString("en-GB", {
-              hour: "2-digit",
-              minute: "2-digit",
-              hour12: false,
-            })
-          : formData.gioKhamBenh;
+      // Format time for submission
+      let formattedTime;
+      if (formData.gioKhamBenh instanceof Date) {
+        formattedTime = `${formData.gioKhamBenh
+          .getHours()
+          .toString()
+          .padStart(2, "0")}:${formData.gioKhamBenh
+          .getMinutes()
+          .toString()
+          .padStart(2, "0")}:00`;
+      } else {
+        formattedTime = formData.gioKhamBenh.includes(":00")
+          ? formData.gioKhamBenh
+          : `${formData.gioKhamBenh}:00`;
+      }
 
-      // Prepare update data matching the backend model
       const updateData = {
-        id: formData.id,
-        sdtdangky: formData.sdtdangky,
-        sdtgoiden: formData.sdtgoiden || "",
-        yeuCauDacBiet: formData.yeuCauDacBiet || "",
-        ngayKhamBenh: formattedDate,
+        ...formData,
         gioKhamBenh: formattedTime,
-        loaiBenhNhan: formData.loaiBenhNhan || "",
-        trangThai: formData.trangThai || "Chưa xác nhận",
+        ngayKhamBenh:
+          formData.ngayKhamBenh instanceof Date
+            ? formData.ngayKhamBenh.toISOString().split("T")[0]
+            : formData.ngayKhamBenh,
         thongtinBenhnhan: {
           hovaTenbenhnhan: formData.tenbenhnhan,
-          ngaythangnamsinh: formattedDob,
+          ngaythangnamsinh:
+            formData.ngaythangnamsinh instanceof Date
+              ? formData.ngaythangnamsinh.toISOString().split("T")[0]
+              : formData.ngaythangnamsinh,
         },
         lichLamViecBacSi: {
           tenphong: selectedRoom,
           calam: shift,
-          thongtinBacsi: {
-            tenBacsi: selectedDoctor,
-          },
+          thongtinBacsi: { tenBacsi: selectedDoctor },
         },
       };
 
@@ -572,7 +822,6 @@ const AppointmentBooking = () => {
         fetchAppointments();
       }
     } catch (error) {
-      console.error("Update Error:", error.response?.data || error.message);
       const errorMessage =
         error.response?.data?.message || "Có lỗi xảy ra khi cập nhật lịch khám";
       showNotification(errorMessage, "error");
@@ -601,7 +850,11 @@ const AppointmentBooking = () => {
         .includes(searchKeyword.toLowerCase()) ||
       appointment.sdtdangky.includes(searchKeyword) ||
       appointment.phong.toLowerCase().includes(searchKeyword.toLowerCase());
-    return matchPatientType && matchKeyword;
+    const matchCreationDate = creationDateFilter
+      ? isSameDay(appointment.ngayTaoLich, creationDateFilter)
+      : true;
+
+    return matchPatientType && matchKeyword && matchCreationDate;
   });
   // Reset form after submission
   const resetForm = () => {
@@ -804,9 +1057,14 @@ const AppointmentBooking = () => {
               <Grid item xs={6}>
                 <TextField
                   name="tenbenhnhan"
-                  label="Tên bệnh nhân"
+                  label="Họ và tên bệnh nhân"
                   value={formData.tenbenhnhan}
-                  onChange={handleInputChange}
+                  onChange={(e) => {
+                    const upperCaseValue = e.target.value.toUpperCase();
+                    handleInputChange({
+                      target: { name: "tenbenhnhan", value: upperCaseValue },
+                    });
+                  }}
                   fullWidth
                   required
                   error={!!errors.tenbenhnhan}
@@ -922,6 +1180,33 @@ const AppointmentBooking = () => {
                   }}
                 />
               </Grid>
+              <Grid item xs={6} sm={6} md={4} sx={{ marginLeft: "115px" }}>
+                <DateField
+                  label="Lọc theo ngày tạo"
+                  value={creationDateFilter}
+                  onChange={handleCreationDateChange}
+                  fullWidth
+                  slotProps={{
+                    textField: {
+                      InputProps: {
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <Button
+                              size="small"
+                              onClick={resetToCurrentDate}
+                              sx={{
+                                minWidth: "auto",
+                              }}
+                            >
+                              Hôm nay
+                            </Button>
+                          </InputAdornment>
+                        ),
+                      },
+                    },
+                  }}
+                />
+              </Grid>
               {/* Nút hành động */}
               <Grid item xs={12} textAlign="center">
                 {!isEditing ? (
@@ -1030,7 +1315,7 @@ const AppointmentBooking = () => {
               <Grid item xs={12}>
                 <TableContainer
                   component={Paper}
-                  sx={{ boxShadow: 3, height: "570px", overflowY: "auto" }}
+                  sx={{ boxShadow: 3, height: "633px", overflowY: "auto" }}
                 >
                   <Table>
                     <TableHead
@@ -1168,7 +1453,9 @@ const AppointmentBooking = () => {
                           <TableCell sx={{ border: "2px solid #E1EBEE" }}>
                             <Button
                               variant="contained"
-                              sx={{ bgcolor: "#89CFF0" }}
+                              sx={{
+                                bgcolor: "#89CFF0",
+                              }}
                               size="small"
                               onClick={() => {
                                 // Điền thông tin lịch khám vào form để sửa
